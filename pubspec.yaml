@@ -1,0 +1,42 @@
+name: ecocash_indonesia
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.1
+  mobile_scanner: ^7.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
+    - assets/logoideas.png
+    - assets/google.png
+    - assets/bg.png
+    - assets/bgscan.png
+    - assets/icons/share.png
+    - assets/icons/recycle.png
+    - assets/icons/mingcute.png
+    - assets/icons/daun.png
+    - assets/icons/dompet.png
+    - assets/icons/lock.png
+    - assets/icons/lokasi.png
+    - assets/icons/love.png
+    - assets/icons/panah.png
+    - assets/icons/panahb.png
+    - assets/icons/plus.png
+    - assets/icons/scan.png
+    - assets/icons/topup.png
+    - assets/icons/star.png
+    - assets/icons/riwayat.png
