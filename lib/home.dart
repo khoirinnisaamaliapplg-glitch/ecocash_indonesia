@@ -1,4 +1,7 @@
+import 'package:ecocash_indonesia/bantuan/bantuan.dart';
+import 'package:ecocash_indonesia/ecomer/ecomer.dart';
 import 'package:ecocash_indonesia/history/refund.dart';
+import 'package:ecocash_indonesia/maps/maps.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
 import 'package:ecocash_indonesia/tf/transfer.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +25,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(
               height: 40,
             ), // Kurangi SizedBox ini karena height di atas sudah ditambah
-            _buildCombinedPaymentMenu(),
+            _buildCombinedPaymentMenu(context),
             const SizedBox(height: 50),
           ],
         ),
@@ -201,7 +204,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   // Widget _buildCombinedPaymentMenu, _buildStatItem, dll tetap sama...
-  Widget _buildCombinedPaymentMenu() {
+  Widget _buildCombinedPaymentMenu(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -266,14 +269,44 @@ class HomeScreen extends StatelessWidget {
                       _buildMenuTile(
                         'assets/icons/lokasi.png',
                         "Find nearest return point",
+                        onTap: () {
+                          // Navigasi ke halaman maps
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const Maps(),
+                            ),
+                          );
+                        },
                       ),
                       _buildDivider(),
                       _buildMenuTile(
                         'assets/icons/panahb.png',
                         "Exchange balance for goods",
+                        onTap: () {
+                          // Navigasi ke halaman e-commerce
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EcomerPage(),
+                            ),
+                          );
+                        },
                       ),
                       _buildDivider(),
-                      _buildMenuTile('assets/icons/love.png', "Charities"),
+                      _buildMenuTile(
+                        'assets/icons/love.png',
+                        "Charities",
+                        onTap: () {
+                          // Navigasi ke halaman charities
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const DonationPage(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildDivider(),
                       _buildMenuTile('assets/icons/plus.png', "Other"),
                     ],
@@ -313,7 +346,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuTile(String path, String title) {
+  Widget _buildMenuTile(String path, String title, {VoidCallback? onTap}) {
     return ListTile(
       leading: Image.asset(path, height: 30, width: 30),
       title: Text(
@@ -321,7 +354,7 @@ class HomeScreen extends StatelessWidget {
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       trailing: const Icon(Icons.chevron_right, size: 18),
-      onTap: () {},
+      onTap: onTap,
     );
   }
 

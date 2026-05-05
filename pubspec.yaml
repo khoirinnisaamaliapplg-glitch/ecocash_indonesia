@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   http: ^1.2.1
   mobile_scanner: ^7.0.0
+  flutter_map: ^6.1.0 
+  latlong2: ^0.9.1
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +27,10 @@ flutter:
     - assets/google.png
     - assets/bg.png
     - assets/bgscan.png
+    - assets/lampu.png
+    - assets/cermin.png
+    - assets/pot.png
+    - assets/tempat_pensil.png
     - assets/icons/share.png
     - assets/icons/recycle.png
     - assets/icons/mingcute.png
