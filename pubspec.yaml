@@ -13,6 +13,8 @@ dependencies:
   mobile_scanner: ^7.0.0
   flutter_map: ^6.1.0 
   latlong2: ^0.9.1
+  jwt_decoder: ^2.0.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

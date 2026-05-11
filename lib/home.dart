@@ -3,6 +3,7 @@ import 'package:ecocash_indonesia/ecomer/ecomer.dart';
 import 'package:ecocash_indonesia/history/refund.dart';
 import 'package:ecocash_indonesia/maps/maps.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
+import 'package:ecocash_indonesia/saldo/saldo.dart';
 import 'package:ecocash_indonesia/tf/transfer.dart';
 import 'package:flutter/material.dart';
 
@@ -139,7 +140,19 @@ class HomeScreen extends StatelessWidget {
                   );
                 },
               ),
-              _buildActionItem(context, 'assets/icons/topup.png', "Top Up"),
+              _buildActionItem(
+                context,
+                'assets/icons/topup.png',
+                "Top Up",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const IsiSaldoPage(),
+                    ),
+                  );
+                },
+              ),
               _buildActionItem(
                 context,
                 'assets/icons/panah.png',

@@ -1,6 +1,7 @@
+import 'package:ecocash_indonesia/maps/detail.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart'; // Package peta gratis
-import 'package:latlong2/latlong.dart'; // Untuk koordinat
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class Maps extends StatefulWidget {
   const Maps({super.key});
@@ -10,23 +11,26 @@ class Maps extends StatefulWidget {
 }
 
 class _MapsState extends State<Maps> {
-  // Koordinat Bandung (Sesuai nama lokasi di gambar)
   final LatLng _center = const LatLng(-6.9175, 107.6191);
+
+  // State untuk mengontrol tampilan di dalam Sheet
+  bool _isShowingDetail = false;
+  String _selectedName = "";
+  String _selectedAddress = "";
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // --- 1. LAYER PETA (FLUTTER MAP / OPENSTREETMAP) ---
+          // 1. Layer Peta
           FlutterMap(
             options: MapOptions(initialCenter: _center, initialZoom: 14.0),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
+                userAgentPackageName: 'com.ecocash.app',
               ),
-              // Marker (Titik di peta)
               MarkerLayer(
                 markers: [
                   Marker(
@@ -44,12 +48,12 @@ class _MapsState extends State<Maps> {
             ],
           ),
 
-          // --- 2. LAYER KARTU YANG BISA DITARIK (BOTTOM SHEET) ---
+          // 2. Layer Kartu Draggable
           DraggableScrollableSheet(
             initialChildSize: 0.38,
             minChildSize: 0.15,
             maxChildSize: 0.92,
-            snap: true, // Efek narik yang rapih
+            snap: true,
             builder: (context, scrollController) {
               return Container(
                 decoration: BoxDecoration(
@@ -66,7 +70,7 @@ class _MapsState extends State<Maps> {
                 ),
                 child: Column(
                   children: [
-                    // Handle Bar (Garis kecil di atas kartu)
+                    // Handle Bar (Garis tarik)
                     Container(
                       margin: const EdgeInsets.symmetric(vertical: 12),
                       height: 5,
@@ -77,91 +81,19 @@ class _MapsState extends State<Maps> {
                       ),
                     ),
 
-                    // Header Hijau "Ecomap Location"
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF4DB67D,
-                          ), // Hijau sesuai image_117b1e.png
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              "Ecomap Location",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Daftar Lokasi
+                    // Konten Dinamis
                     Expanded(
-                      child: ListView(
-                        controller: scrollController, // Wajib agar bisa ditarik
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                        children: [
-                          // Search Box
-                          TextField(
-                            decoration: InputDecoration(
-                              hintText: "Search location...",
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(30),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-
-                          // Kategori Tab
-                          _buildCategoryTabs(),
-
-                          const Divider(height: 40),
-
-                          // Item Lokasi (Sesuai List di Gambar)
-                          _locationTile(
-                            "Ecomap Buahbatu",
-                            "10 km",
-                            "Jl. Buahbatu no 45 Desa cipagalo...",
-                          ),
-                          _locationTile(
-                            "Ecomap Pasir Kaliki",
-                            "40 km",
-                            "Jl. Pasir Kaliki no 21 Desa Ciomas...",
-                          ),
-                          _locationTile(
-                            "Ecomap Setiabudi",
-                            "25 km",
-                            "Jl. Setiabudi no 12 Desa Sukamaju...",
-                          ),
-                          _locationTile(
-                            "Ecomap Dago",
-                            "35 km",
-                            "Jl. Dago no 33 Desa Cibiru Kecam...",
-                          ),
-                          _locationTile(
-                            "Ecomap Cihampelas",
-                            "15 km",
-                            "Jl. Cihampelas no 7 Desa Cipaku...",
-                          ),
-                        ],
-                      ),
+                      child: _isShowingDetail
+                          ? DetailMaps(
+                              // Jika sedang melihat detail
+                              name: _selectedName,
+                              address: _selectedAddress,
+                              onBack: () =>
+                                  setState(() => _isShowingDetail = false),
+                            )
+                          : _buildMainList(
+                              scrollController,
+                            ), // Jika sedang melihat list
                     ),
                   ],
                 ),
@@ -173,7 +105,84 @@ class _MapsState extends State<Maps> {
     );
   }
 
-  // --- Widget Kecil agar Kode Rapi ---
+  // Tampilan Daftar Lokasi (Default)
+  Widget _buildMainList(ScrollController scrollController) {
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        // Header Hijau
+        Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4DB67D),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.location_on, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text(
+                "Ecomap Location",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 15),
+
+        // Search Bar
+        TextField(
+          decoration: InputDecoration(
+            hintText: "Search location...",
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: Colors.grey[100],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+
+        // Tabs Kategori
+        _buildCategoryTabs(),
+        const Divider(height: 40),
+
+        // Daftar Lokasi Tile
+        _locationTile(
+          "Ecomap Buahbatu",
+          "10 km",
+          "Jl. Buahbatu no 45 Desa cipagalo...",
+        ),
+        _locationTile(
+          "Ecomap Pasir Kaliki",
+          "40 km",
+          "Jl. Pasir Kaliki no 21 Desa Ciomas...",
+        ),
+        _locationTile(
+          "Ecomap Setiabudi",
+          "25 km",
+          "Jl. Setiabudi no 12 Desa Sukamaju...",
+        ),
+        _locationTile(
+          "Ecomap Dago",
+          "35 km",
+          "Jl. Dago no 33 Desa Cibiru Kecam...",
+        ),
+        _locationTile(
+          "Ecomap Cihampelas",
+          "15 km",
+          "Jl. Cihampelas no 7 Desa Cipaku...",
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
 
   Widget _buildCategoryTabs() {
     return SingleChildScrollView(
@@ -233,6 +242,13 @@ class _MapsState extends State<Maps> {
         ],
       ),
       subtitle: Text(sub, overflow: TextOverflow.ellipsis),
+      onTap: () {
+        setState(() {
+          _isShowingDetail = true;
+          _selectedName = name;
+          _selectedAddress = sub;
+        });
+      },
     );
   }
 }
