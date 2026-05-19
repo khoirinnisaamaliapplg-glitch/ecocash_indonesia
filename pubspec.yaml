@@ -11,11 +11,12 @@ dependencies:
     sdk: flutter
   http: ^1.2.1
   mobile_scanner: ^7.0.0
-  flutter_map: ^6.1.0 
-  latlong2: ^0.9.1
+  flutter_map: ^6.0.0 
+  latlong2: ^0.9.0
+  geolocator: ^11.0.0
   jwt_decoder: ^2.0.1
   qr_flutter: ^4.1.0
-
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -33,6 +34,7 @@ flutter:
     - assets/cermin.png
     - assets/pot.png
     - assets/tempat_pensil.png
+    - assets/banner2.jpeg
     - assets/icons/share.png
     - assets/icons/recycle.png
     - assets/icons/mingcute.png
@@ -48,3 +50,4 @@ flutter:
     - assets/icons/topup.png
     - assets/icons/star.png
     - assets/icons/riwayat.png
+    - assets/icons/pin.png

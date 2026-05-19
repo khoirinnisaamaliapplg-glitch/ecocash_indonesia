@@ -273,7 +273,7 @@ class _ScanPageState extends State<ScanPage> {
 
                 // --- Maskot (Sesuai Layout Asli) ---
                 Image.asset(
-                  'assets/bgscan.png',
+                  'banner2.jpeg',
                   height: 200,
                   errorBuilder: (context, error, stackTrace) =>
                       const SizedBox(height: 200),

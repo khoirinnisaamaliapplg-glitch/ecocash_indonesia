@@ -29,77 +29,77 @@ class _LoginPageState extends State<LoginPage> {
 
   // --- LOGIKA LOGIN (Disamakan dengan versi Web React) ---
   Future<void> _handleLogin() async {
-  if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-    _showSnackBar("Username dan Password wajib diisi", Colors.orange);
-    return;
-  }
-
-  setState(() => _isLoading = true);
-
-  try {
-    final response = await http.post(
-      Uri.parse(ApiConfig.login),
-      headers: ApiConfig.headers,
-      body: jsonEncode({
-        'identifier': _emailController.text.trim(),
-        'password': _passwordController.text,
-      }),
-    );
-
-    final responseData = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      // 1. Ambil token dari response
-      String token = responseData['data']['token'];
-
-      // 2. SIMPAN TOKEN KE APICONFIG (BARIS WAJIB!)
-      // Ini supaya halaman Scan & Setor bisa pakai token ini untuk Authorization
-      ApiConfig.userToken = token; 
-      debugPrint("Token berhasil disimpan di memori.");
-
-      // 3. Decode token untuk cek role
-      Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-      String role = decodedToken['role'] ?? "";
-      String userRole = role.toUpperCase().trim();
-
-      // 4. FILTER ROLE: Hanya REGULAR_USER yang bisa masuk ke Mobile
-      if (userRole == "REGULAR_USER") {
-        if (!mounted) return;
-        _showSnackBar(
-          "Selamat Datang, ${_emailController.text}!",
-          Colors.green,
-        );
-
-        // Pindah ke Dashboard
-        Future.delayed(const Duration(milliseconds: 1000), () {
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        });
-      } else {
-        // Jika bukan user biasa, hapus token lagi biar aman
-        ApiConfig.userToken = null;
-        if (!mounted) return;
-        _showSnackBar(
-          "Role '$userRole' tidak memiliki akses mobile.",
-          Colors.red,
-        );
-      }
-    } else {
-      final errorMsg = responseData['message'] ?? 'Login Gagal';
-      if (!mounted) return;
-      _showSnackBar(errorMsg, Colors.red);
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showSnackBar("Username dan Password wajib diisi", Colors.orange);
+      return;
     }
-  } catch (e) {
-    debugPrint("Error: $e");
-    if (!mounted) return;
-    _showSnackBar("Terjadi kesalahan pada server", Colors.red);
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.login),
+        headers: ApiConfig.headers,
+        body: jsonEncode({
+          'identifier': _emailController.text.trim(),
+          'password': _passwordController.text,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        // 1. Ambil token dari response
+        String token = responseData['data']['token'];
+
+        // 2. SIMPAN TOKEN KE APICONFIG (BARIS WAJIB!)
+        // Ini supaya halaman Scan & Setor bisa pakai token ini untuk Authorization
+        ApiConfig.userToken = token;
+        debugPrint("Token berhasil disimpan di memori.");
+
+        // 3. Decode token untuk cek role
+        Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+        String role = decodedToken['role'] ?? "";
+        String userRole = role.toUpperCase().trim();
+
+        // 4. FILTER ROLE: Hanya REGULAR_USER yang bisa masuk ke Mobile
+        if (userRole == "REGULAR_USER") {
+          if (!mounted) return;
+          _showSnackBar(
+            "Selamat Datang, ${_emailController.text}!",
+            Colors.green,
+          );
+
+          // Pindah ke Dashboard
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            if (!mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          });
+        } else {
+          // Jika bukan user biasa, hapus token lagi biar aman
+          ApiConfig.userToken = null;
+          if (!mounted) return;
+          _showSnackBar(
+            "Role '$userRole' tidak memiliki akses mobile.",
+            Colors.red,
+          );
+        }
+      } else {
+        final errorMsg = responseData['message'] ?? 'Login Gagal';
+        if (!mounted) return;
+        _showSnackBar(errorMsg, Colors.red);
+      }
+    } catch (e) {
+      debugPrint("Error: $e");
+      if (!mounted) return;
+      _showSnackBar("Terjadi kesalahan pada server", Colors.red);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
-}
 
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(

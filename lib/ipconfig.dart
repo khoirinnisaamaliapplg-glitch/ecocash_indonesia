@@ -11,6 +11,10 @@ class ApiConfig {
 
   static const String getMyWallet = "$baseUrl/wallets/me";
   static const String getTransactions = "$baseUrl/wallets/me/transactions";
+
+  static String getNearestMachines(double latitude, double longitude) => 
+      "$baseUrl/machines/nearest?latitude=$latitude&longitude=$longitude";
+
   // Variabel untuk menyimpan token setelah login
   static String? userToken;
 
