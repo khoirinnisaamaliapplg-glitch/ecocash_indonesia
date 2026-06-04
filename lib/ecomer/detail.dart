@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 class DetailPage extends StatelessWidget {
-  const DetailPage({super.key});
+  // Tambahkan variabel untuk menerima data produk
+  final Map<String, dynamic> product;
+
+  const DetailPage({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
@@ -12,23 +15,22 @@ class DetailPage extends StatelessWidget {
           // 1. Bagian Header & Card Melayang (Statis)
           _buildHeaderSection(context),
 
-          // 2. Spacer & Tombol Konfirmasi (Ditaruh dalam Expanded agar layout rapi)
+          // 2. Spacer & Tombol Konfirmasi
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.end, // Tombol di paling bawah
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        // Tambahkan aksi konfirmasi di sini
+                      },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(
-                          0xFF2E7D32,
-                        ), // Hijau sesuai gambar
+                        backgroundColor: const Color(0xFF2E7D32),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -57,7 +59,6 @@ class DetailPage extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Background Biru
         Container(
           height: 200,
           width: double.infinity,
@@ -79,11 +80,7 @@ class DetailPage extends StatelessWidget {
                     color: Colors.white.withOpacity(0.3),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
                 const Text(
@@ -98,9 +95,8 @@ class DetailPage extends StatelessWidget {
             ),
           ),
         ),
-        // Kartu Detail Produk yang Melayang
         Positioned(
-          top: 120, // Mengatur agar kartu memotong header
+          top: 120,
           left: 15,
           right: 15,
           child: _buildProductDetailCard(),
@@ -129,46 +125,28 @@ class DetailPage extends StatelessWidget {
           // Gambar Produk
           ClipRRect(
             borderRadius: BorderRadius.circular(15),
-            child: Image.asset(
-              'assets/lampu.png', // Sesuaikan path gambar anda
+            child: Container(
               height: 250,
               width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                height: 250,
-                color: Colors.grey[300],
-                child: const Icon(Icons.image, size: 100, color: Colors.grey),
-              ),
+              color: Colors.grey[200],
+              child: const Icon(Icons.shopping_cart, size: 80, color: Colors.grey),
             ),
           ),
           const SizedBox(height: 15),
-          // Judul Produk
-          const Text(
-            "Lampu dari sendok plastik bekas",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          // Judul Produk (Dinamis dari item yang diklik)
+          Text(
+            product['name'] ?? 'Product Name',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
-          // Harga
-          Row(
-            children: [
-              const Text(
-                "Rp 80.000",
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                "Rp 100.000",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[400],
-                  decoration: TextDecoration.lineThrough,
-                ),
-              ),
-            ],
+          // Harga (Dinamis dari item yang diklik)
+          Text(
+            "Rp ${product['price'] ?? '0'}",
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+            ),
           ),
           const Divider(height: 30),
           // Deskripsi
@@ -178,7 +156,7 @@ class DetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            "Lorem ipsum dolor sit amet consectetur. Lorem scelerisque nunc sed orci pellentesque lorem metus. Sagittis turpis turpis lectus nisl diam molestie adipiscing ut. Nunc id ullamcorper quam diam integer tempor. Tellus purus facilisis cum tincidunt ut.",
+            product['description'] ?? "No description available for this product.",
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],

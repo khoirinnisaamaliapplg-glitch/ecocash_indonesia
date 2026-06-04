@@ -7,6 +7,8 @@ class ApiConfig {
   static const String startSession = "$baseUrl/machine-sessions/start";
   static const String getMySessionHistory = "$baseUrl/machine-sessions/my";
 
+  static const String getProducts = "$baseUrl/products/marketplace";
+
   static String getSessionDetail(String id) => "$baseUrl/machine-sessions/$id";
   static String completeSession(String id) =>
       "$baseUrl/machine-sessions/$id/complete";

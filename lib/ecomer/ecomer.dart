@@ -1,8 +1,43 @@
 import 'package:flutter/material.dart';
-import 'detail.dart'; // Pastikan path import sesuai dengan folder kamu
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'detail.dart';
+import 'package:ecocash_indonesia/ipconfig.dart';
 
-class EcomerPage extends StatelessWidget {
+class EcomerPage extends StatefulWidget {
   const EcomerPage({super.key});
+
+  @override
+  State<EcomerPage> createState() => _EcomerPageState();
+}
+
+class _EcomerPageState extends State<EcomerPage> {
+  late Future<List<dynamic>> _productsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _productsFuture = _fetchProducts();
+  }
+
+  Future<List<dynamic>> _fetchProducts() async {
+    final response = await http.get(
+      Uri.parse(ApiConfig.getProducts),
+      headers: ApiConfig.headers,
+    );
+
+    if (response.statusCode == 200) {
+      final decodedData = json.decode(response.body);
+      if (decodedData is Map && decodedData.containsKey('data')) {
+        return decodedData['data'];
+      } else if (decodedData is List) {
+        return decodedData;
+      }
+      return [];
+    } else {
+      throw Exception('Gagal memuat produk: ${response.statusCode}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10,13 +45,8 @@ class EcomerPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF5F5F5),
       body: Column(
         children: [
-          // Bagian Atas: Statis (Header & Saldo)
           _buildHeaderSection(context),
-
-          // Jarak untuk memberi ruang bagi kartu saldo yang melayang
           const SizedBox(height: 70),
-
-          // Bagian Bawah: Scrollable (Produk)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 20),
@@ -108,7 +138,7 @@ class EcomerPage extends StatelessWidget {
                     'assets/icons/dompet.png',
                     height: 35,
                     width: 35,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
+                    errorBuilder: (c, e, s) => const Icon(
                       Icons.account_balance_wallet,
                       size: 35,
                       color: Colors.green,
@@ -139,97 +169,98 @@ class EcomerPage extends StatelessWidget {
   }
 
   Widget _buildMainContent(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(15),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFF7066),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return FutureBuilder<List<dynamic>>(
+      future: _productsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 50),
+              child: CircularProgressIndicator(),
             ),
-            child: const Row(
-              children: [
-                Icon(Icons.stars, color: Colors.white, size: 20),
-                SizedBox(width: 10),
-                Text(
-                  "Attractive offer",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+          );
+        } else if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 50),
+              child: Text("Error: ${snapshot.error}"),
+            ),
+          );
+        }
+
+        final products = snapshot.data ?? [];
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(15),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 20,
+                ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF7066),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.stars, color: Colors.white, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      "Attractive offer",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(15),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 15,
+                    crossAxisSpacing: 15,
+                    childAspectRatio: 0.65,
                   ),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    // MENGIRIM ITEM SEBAGAI MAP
+                    final item = products[index] as Map<String, dynamic>;
+                    return _buildProductItem(context, item);
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(15),
-            child: GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 15,
-              crossAxisSpacing: 15,
-              childAspectRatio: 0.65,
-              children: [
-                _buildProductItem(
-                  context,
-                  "Lampu sendok plastik",
-                  "Rp 80.000",
-                  Icons.lightbulb,
-                ),
-                _buildProductItem(
-                  context,
-                  "Cermin hias sendok",
-                  "Rp 75.000",
-                  Icons.grid_view,
-                ),
-                _buildProductItem(
-                  context,
-                  "Pot tanaman kaleng",
-                  "Rp 20.000",
-                  Icons.yard,
-                ),
-                _buildProductItem(
-                  context,
-                  "Tempat alat belajar",
-                  "Rp 35.000",
-                  Icons.edit_note,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildProductItem(
-    BuildContext context,
-    String title,
-    String price,
-    IconData icon,
-  ) {
+  // FUNGSI DIPERBAIKI: Menerima Map item bukan sekadar string
+  Widget _buildProductItem(BuildContext context, Map<String, dynamic> item) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const DetailPage()),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => DetailPage(product: item)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -240,28 +271,35 @@ class EcomerPage extends StatelessWidget {
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, size: 40, color: Colors.grey[400]),
+              child: const Icon(
+                Icons.shopping_cart,
+                size: 40,
+                color: Colors.grey,
+              ),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            title,
+            item['name'] ?? 'Product',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          Text(price, style: const TextStyle(fontWeight: FontWeight.w900)),
+          Text(
+            "Rp ${item['price'] ?? '0'}",
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             height: 30,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DetailPage()),
-                );
-              },
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailPage(product: item),
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2E7D32),
                 foregroundColor: Colors.white,
