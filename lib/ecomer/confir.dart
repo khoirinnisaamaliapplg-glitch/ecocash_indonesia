@@ -1,11 +1,60 @@
 import 'package:flutter/material.dart';
-import 'package:ecocash_indonesia/ecomer/confir.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:ecocash_indonesia/ecomer/OrdersPage.dart';
+import 'package:ecocash_indonesia/ipconfig.dart'; // Sesuaikan path ini
 
-class DetailPage extends StatelessWidget {
-  // Tambahkan variabel untuk menerima data produk
+class ConfirmationPage extends StatelessWidget {
   final Map<String, dynamic> product;
 
-  const DetailPage({super.key, required this.product});
+  const ConfirmationPage({super.key, required this.product});
+
+  // Fungsi untuk memproses API
+  Future<void> _confirmOrder(BuildContext context) async {
+    try {
+      // Pastikan productId diubah menjadi int sebelum dikirim
+      final int pId = int.tryParse(product['id'].toString()) ?? 0;
+
+      if (pId == 0) {
+        throw Exception("Invalid Product ID");
+      }
+
+      final response = await http.post(
+        Uri.parse(ApiConfig.createOrder),
+        headers: ApiConfig.headers,
+        body: jsonEncode({
+          'items': [
+            {
+              'productId': pId, // Kirim sebagai integer, bukan string
+              'quantity': 1,
+            },
+          ],
+          'notes': 'Order via mobile app',
+        }),
+      );
+
+      // Tambahkan log untuk debugging jika error
+      // Di dalam ConfirmationPage, pada fungsi _confirmOrder
+      if (response.statusCode == 201) {
+        if (!context.mounted) return;
+
+        // Ganti Navigator.pop(context) dengan ini:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const OrdersPage()),
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Order created successfully!")),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,10 +62,7 @@ class DetailPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF5F5F5),
       body: Column(
         children: [
-          // 1. Bagian Header & Card Melayang (Statis)
           _buildHeaderSection(context),
-
-          // 2. Spacer & Tombol Konfirmasi
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -27,16 +73,7 @@ class DetailPage extends StatelessWidget {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Navigasi ke halaman konfirmasi dengan data produk
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ConfirmationPage(product: product),
-                          ),
-                        );
-                      },
+                      onPressed: () => _confirmOrder(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2E7D32),
                         shape: RoundedRectangleBorder(
@@ -45,7 +82,7 @@ class DetailPage extends StatelessWidget {
                         elevation: 0,
                       ),
                       child: const Text(
-                        "Confirm now",
+                        "Pay Now",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -96,7 +133,7 @@ class DetailPage extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 const Text(
-                  'Back',
+                  'Confirm',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -107,17 +144,17 @@ class DetailPage extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          top: 120,
-          left: 15,
-          right: 15,
-          child: _buildProductDetailCard(),
-        ),
+        Positioned(top: 120, left: 15, right: 15, child: _buildSummaryCard()),
       ],
     );
   }
 
-  Widget _buildProductDetailCard() {
+  Widget _buildSummaryCard() {
+    // Menghitung subtotal secara sederhana
+    final price = double.tryParse(product['price'].toString()) ?? 0.0;
+    final quantity = 1; // Jika ada state quantity, gunakan itu
+    final subtotal = price * quantity;
+
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -134,51 +171,46 @@ class DetailPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Gambar Produk
-          ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: Container(
-              height: 250,
-              width: double.infinity,
-              color: Colors.grey[200],
-              child: const Icon(
-                Icons.shopping_cart,
-                size: 80,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          // Judul Produk (Dinamis dari item yang diklik)
-          Text(
-            product['name'] ?? 'Product Name',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          // Harga (Dinamis dari item yang diklik)
-          Text(
-            "Rp ${product['price'] ?? '0'}",
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: Colors.black,
-            ),
+          const Text(
+            "Order Summary",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Divider(height: 30),
-          // Deskripsi
-          const Text(
-            "Description",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(product['name'] ?? 'Product'),
+              Text(
+                "Qty: $quantity",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            product['description'] ??
-                "No description available for this product.",
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              height: 1.5,
-            ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Price per item"),
+              Text("Rp ${product['price']}"),
+            ],
+          ),
+          const Divider(height: 30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Total Payment",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              Text(
+                "Rp $subtotal",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ],
           ),
         ],
       ),

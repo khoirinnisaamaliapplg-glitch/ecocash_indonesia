@@ -2,6 +2,8 @@ import 'package:ecocash_indonesia/home.dart';
 import 'package:ecocash_indonesia/landingpage.dart';
 import 'package:ecocash_indonesia/setor_sampah/konfirmasi.dart';
 import 'package:ecocash_indonesia/setor_sampah/transaksi.dart';
+import 'package:ecocash_indonesia/ecomer/OrdersPage.dart';
+import 'package:ecocash_indonesia/ecomer/orderdetail.dart';
 import 'package:flutter/material.dart';
 // import 'Auth/login.dart';
 
@@ -21,7 +23,7 @@ class MainApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.green, // Tema hijau untuk EcoCash
       ),
-      home: const SplashLandingPage(),
+      home: const EcoCashKidsApp(),
     );
   }
 }

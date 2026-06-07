@@ -17,6 +17,10 @@ class ApiConfig {
   // static String getMachineDetail(String id) {
   //   return "$baseUrl/machines/$id";
   // }
+  
+  static const String createOrder = "$baseUrl/orders";
+  static const String getMyOrders = "$baseUrl/orders/my";
+  static String getOrderById(String id) => "$baseUrl/orders/$id";
 
   // --- Lainnya ---
   static const String getMyQr = "$baseUrl/users/me/qr";
