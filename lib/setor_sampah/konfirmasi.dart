@@ -1,8 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:ecocash_indonesia/ipconfig.dart'; 
-import 'package:ecocash_indonesia/setor_sampah/transaksi.dart'; 
+import 'package:ecocash_indonesia/ipconfig.dart';
+import 'package:ecocash_indonesia/setor_sampah/transaksi.dart';
 
 class SetorSampahScreen extends StatefulWidget {
   final String? sessionId;
@@ -15,76 +16,97 @@ class SetorSampahScreen extends StatefulWidget {
 
 class _SetorSampahScreenState extends State<SetorSampahScreen> {
   bool _isLoading = false;
+  bool _isReadyToConfirm = false;
+  String _statusMesin = "Menunggu mesin selesai menimbang...";
+  Timer? _timer;
 
-  // --- LOGIKA KONFIRMASI SESI (USER KLIK SELESAI) ---
-  Future<void> _handleConfirm() async {
-    // 1. Validasi ID Sesi
-    if (widget.sessionId == null || widget.sessionId!.isEmpty) {
-      _showSnackBar("ID Sesi tidak valid atau sudah kadaluwarsa", Colors.orange);
-      return;
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+  _timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.getSessionDetail(widget.sessionId!)),
+        headers: ApiConfig.headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        debugPrint("Status dari server: ${data['status']}");
+
+        // Ganti 'completed' menjadi 'WAITING_CONFIRMATION'
+        if (data['status'] == 'WAITING_CONFIRMATION') {
+          timer.cancel();
+          if (mounted) {
+            setState(() {
+              _statusMesin = "Selesai! Silakan konfirmasi.";
+              _isReadyToConfirm = true;
+            });
+          }
+        } 
+        // Tambahan: Tangani jika sesi dibatalkan oleh mesin
+        else if (data['status'] == 'CANCELLED') {
+           timer.cancel();
+           // Tampilkan pesan error atau kembali ke halaman sebelumnya
+           _showSnackBar("Sesi dibatalkan oleh mesin", Colors.red);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error saat polling: $e");
     }
+  });
+}
+
+  Future<void> _handleConfirm() async {
+    if (!_isReadyToConfirm) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 2. Gunakan endpoint CONFIRM dari ApiConfig
-      final String url = ApiConfig.confirmSession(widget.sessionId!);
-
-      debugPrint("Menghubungi Server: $url");
-
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(ApiConfig.confirmSession(widget.sessionId!)),
         headers: ApiConfig.headers,
       );
 
-      // 3. Cek Response
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-        debugPrint("Success: ${responseData['message']}");
-
-        _showSnackBar("Konfirmasi Berhasil! Saldo ditambahkan.", Colors.green);
-
-        // Beri jeda 1 detik agar user bisa baca SnackBar
-        await Future.delayed(const Duration(seconds: 1));
-
         if (mounted) {
-          // Pindah ke halaman Berhasil dan KIRIM DATA hasil API
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (context) => TransaksiBerhasilScreen(
-                detailTransaksi: responseData, // Data dikirim ke sini
-              ),
+              builder: (context) =>
+                  TransaksiBerhasilScreen(detailTransaksi: responseData),
             ),
             (route) => route.isFirst,
           );
         }
       } else {
-        final errorData = jsonDecode(response.body);
         _showSnackBar(
-          errorData['message'] ?? "Gagal konfirmasi. Cek status di mesin.",
+          "Gagal konfirmasi: ${jsonDecode(response.body)['message']}",
           Colors.red,
         );
       }
     } catch (e) {
-      debugPrint("Error Catch: $e");
-      _showSnackBar("Koneksi terputus. Pastikan server AIoT aktif.", Colors.red);
+      _showSnackBar("Koneksi terputus.", Colors.red);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   @override
@@ -107,8 +129,7 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 550),
-            const SizedBox(height: 20),
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -116,35 +137,18 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
     );
   }
 
-  // --- WIDGET COMPONENTS ---
-
   Widget _buildHeader(BuildContext context) {
     return Container(
       height: 280,
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF4CAF50),
-        image: DecorationImage(
-          image: AssetImage('assets/bg.png'),
-          fit: BoxFit.cover,
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF4CAF50)),
       padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
           ),
-          const SizedBox(width: 15),
           const Text(
             'Setor Sampah',
             style: TextStyle(
@@ -164,35 +168,23 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
       ),
       child: Column(
         children: [
           const Text(
-            'Scan Berhasil',
+            'Status Transaksi',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Barang daur ulangmu sudah dipindai dan\nsilahkan cek untuk mengkonfirmasi.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
-          ),
-          const SizedBox(height: 25),
-          _buildDetailBox(),
           const SizedBox(height: 20),
-          Image.asset(
-            'assets/bgscan.png',
-            height: 160,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.image, size: 50, color: Colors.grey),
+          if (!_isReadyToConfirm) const CircularProgressIndicator(),
+          const SizedBox(height: 15),
+          Text(
+            _statusMesin,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _isReadyToConfirm ? Colors.green : Colors.grey,
+            ),
           ),
         ],
       ),
@@ -201,94 +193,19 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
 
   Widget _buildBottomAction(BuildContext context) {
     return Container(
-      color: Colors.white,
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleConfirm,
+        onPressed: (_isReadyToConfirm && !_isLoading) ? _handleConfirm : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF388E3C),
           minimumSize: const Size(double.infinity, 55),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          elevation: 0,
         ),
         child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text(
-                'Konfirmasi SDU',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Text(
+                _isReadyToConfirm ? 'Konfirmasi SDU' : 'Menunggu Selesai...',
+                style: const TextStyle(color: Colors.white),
               ),
-      ),
-    );
-  }
-
-  Widget _buildDetailBox() {
-    // Bagian ini masih statis karena hanya untuk preview sebelum konfirmasi.
-    // Setelah diklik konfirmasi, data asli dari backend akan muncul di halaman transaksi.
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Setoran Sampah', style: TextStyle(fontWeight: FontWeight.bold)),
-              _buildStatus(),
-            ],
-          ),
-          const Divider(height: 30),
-          _buildItemRow('Data sedang dimuat...', '-', '-'),
-          const Divider(height: 30),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Total Penjualan', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text('---', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatus() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Text(
-        'Menunggu',
-        style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildItemRow(String name, String qty, String price) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(name, style: const TextStyle(color: Colors.black87)),
-          Text(qty, style: const TextStyle(color: Colors.grey)),
-          Text(price, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
       ),
     );
   }

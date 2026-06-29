@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:ecocash_indonesia/ecomer/cart.dart';
+import 'package:ecocash_indonesia/ecomer/OrdersPage.dart';
 import 'detail.dart';
 import 'package:ecocash_indonesia/ipconfig.dart';
 
@@ -106,13 +108,13 @@ class _EcomerPageState extends State<EcomerPage> {
           bottom: -50,
           left: 20,
           right: 20,
-          child: _buildBalanceCard(),
+          child: _buildBalanceCard(context),
         ),
       ],
     );
   }
 
-  Widget _buildBalanceCard() {
+  Widget _buildBalanceCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -132,36 +134,63 @@ class _EcomerPageState extends State<EcomerPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Image.asset(
-                    'assets/icons/dompet.png',
-                    height: 35,
-                    width: 35,
-                    errorBuilder: (c, e, s) => const Icon(
-                      Icons.account_balance_wallet,
-                      size: 35,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "Rp. 100.000",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              // Ikon Utama
+              const Icon(
+                Icons.receipt_long,
+                size: 35,
+                color: Colors.blueAccent,
               ),
-              const Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey),
+
+              // Tombol Navigasi ke Cart
+              IconButton(
+                icon: const Icon(
+                  Icons.shopping_cart_outlined,
+                  color: Colors.blueAccent,
+                  size: 28,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => CartScreen()),
+                  );
+                },
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          // Judul Utama
           const Text(
             "Exchange of Goods",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
+          const SizedBox(height: 4),
           const Text(
             "Come on, exchange your balance and get the prize you want!",
             style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          // Tombol ke OrderPage
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrdersPage(),
+                  ), // Pastikan OrderPage sudah ter-import
+                );
+              },
+              child: const Text("Lihat Riwayat Pesanan"),
+            ),
           ),
         ],
       ),

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:ecocash_indonesia/ipconfig.dart';
+import 'package:ecocash_indonesia/setor_sampah/konfirmasi.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
@@ -14,6 +15,7 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage> {
   String? _qrToken;
+  String? _sessionId; // Variabel baru untuk menampung ID sesi
   bool _isLoading = true;
   Timer? _timer;
   int _secondsLeft = 30;
@@ -21,35 +23,68 @@ class _ScanPageState extends State<ScanPage> {
   @override
   void initState() {
     super.initState();
-    _fetchQrToken(); // Ambil token saat halaman dibuka
-    _startTimer(); // Jalankan countdown
+    _fetchQrToken();
+    _startTimer();
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Hentikan timer saat pindah halaman
+    _timer?.cancel();
     super.dispose();
   }
 
-  // Timer untuk hitung mundur 30 detik
-  // 1. LOGIKA TIMER: Mematikan timer lama sebelum buat yang baru agar tidak tumpang tindih
-  // 1. LOGIKA TIMER (Hanya mengatur angka dan pemicu)
-  // 1. Perbaikan Logika Timer (Dibersihkan agar tidak menumpuk)
+  // Fungsi Cek Status Sesi (Polling)
+  // Di ScanPage.dart, ubah _checkSessionStatus menjadi:
+  Future<void> _checkSessionStatus() async {
+    if (_sessionId == null) return;
+
+    try {
+      // Gunakan endpoint yang sama dengan SetorSampahScreen
+      final response = await http.get(
+        Uri.parse(ApiConfig.getSessionDetail(_sessionId!)),
+        headers: ApiConfig.headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        debugPrint("ScanPage melihat status: ${data['status']}");
+
+        if (data['status'] == 'WAITING_CONFIRMATION') {
+          _timer?.cancel();
+          if (mounted) {
+            // Pindahkan ke halaman konfirmasi dan bawa sessionId-nya
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SetorSampahScreen(sessionId: _sessionId),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error di ScanPage: $e");
+    }
+  }
+
   void _startTimer() {
-    _timer?.cancel(); // MATIKAN timer lama setiap kali fungsi dipanggil
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (!mounted) return;
+
+      // Panggil pengecekan status setiap 2 detik
+      _checkSessionStatus();
+
       setState(() {
         if (_secondsLeft > 0) {
           _secondsLeft--;
         } else {
-          _fetchQrToken(); // Otomatis panggil saat detik ke-0
+          _fetchQrToken();
         }
       });
     });
   }
 
-  // 2. Perbaikan Logika Fetch (Sinkronisasi Data)
   Future<void> _fetchQrToken() async {
     if (!mounted) return;
 
@@ -68,13 +103,13 @@ class _ScanPageState extends State<ScanPage> {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-
-        // Ambil token dari dalam nested object 'data'
         String? newToken = responseData['data']?['token']?.toString();
+        String? newSessionId = responseData['data']?['session_id']?.toString();
 
         if (mounted) {
           setState(() {
             _qrToken = newToken;
+            _sessionId = newSessionId; // Simpan session ID
             _secondsLeft = 30;
             _isLoading = false;
           });
@@ -95,29 +130,25 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(context),
-            const SizedBox(
-              height: 580,
-            ), // Menjaga scroll area sesuai layout asli
-          ],
-        ),
+      // Menggunakan LayoutBuilder untuk membuat UI responsif terhadap tinggi layar
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  // Tidak perlu SizedBox(height: 580) lagi
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -126,7 +157,7 @@ class _ScanPageState extends State<ScanPage> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Background Header Hijau
+        // Container latar belakang hijau
         Container(
           height: 280,
           width: double.infinity,
@@ -168,141 +199,158 @@ class _ScanPageState extends State<ScanPage> {
           ),
         ),
 
-        // --- Main Card (Tampilan QR) ---
-        Positioned(
-          top: 130,
-          left: 20,
-          right: 20,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Tunjukkan Kode QR',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Arahkan kode QR ini ke scanner mesin,\nAI akan otomatis mendeteksi identitas\ndan memulai sesi transaksi Anda.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-
-                const SizedBox(height: 35),
-
-                // --- AREA QR DENGAN FRAME ---
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 220,
-                      height: 220,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 2,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: _isLoading
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.green,
-                                ),
-                              )
-                            : (_qrToken != null
-                                  ? Center(
-                                      child: QrImageView(
-                                        data: _qrToken!,
-                                        version: QrVersions.auto,
-                                        size: 180.0,
-                                      ),
-                                    )
-                                  : const Center(
-                                      child: Text("Gagal memuat QR"),
-                                    )),
-                      ),
+        // Card Utama
+        Container(
+          margin: const EdgeInsets.only(
+            top: 130,
+            left: 20,
+            right: 20,
+            bottom: 20,
+          ),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Tunjukkan Kode QR',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Arahkan kode QR ini ke scanner mesin,\nAI akan otomatis mendeteksi identitas\ndan memulai sesi transaksi Anda.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 35),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade300, width: 2),
                     ),
-                    // Frame Sudut Hijau (Tetap Pakai Painter Kamu)
-                    CustomBarcodeFrame(size: 230),
-                  ],
-                ),
-
-                const SizedBox(height: 15),
-
-                // Timer Indikator
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 16,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.green,
+                              ),
+                            )
+                          : (_qrToken != null
+                                ? Center(
+                                    child: QrImageView(
+                                      data: _qrToken!,
+                                      version: QrVersions.auto,
+                                      size: 180.0,
+                                    ),
+                                  )
+                                : const Center(child: Text("Gagal memuat QR"))),
+                    ),
+                  ),
+                  CustomBarcodeFrame(size: 230),
+                ],
+              ),
+              const SizedBox(height: 15),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 16,
+                    color: Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    "Berubah dalam $_secondsLeft detik",
+                    style: TextStyle(
                       color: Colors.orange.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      "Berubah dalam $_secondsLeft detik",
-                      style: TextStyle(
-                        color: Colors.orange.shade700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 25),
+              Image.asset(
+                'banner2.jpeg',
+                height: 200,
+                errorBuilder: (c, e, s) => const SizedBox(height: 200),
+              ),
+              const SizedBox(height: 20),
+
+              // Tombol Refresh
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : _fetchQrToken,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.green),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-
-                const SizedBox(height: 25),
-
-                // --- Maskot (Sesuai Layout Asli) ---
-                Image.asset(
-                  'banner2.jpeg',
-                  height: 200,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox(height: 200),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Tombol Refresh Manual
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : _fetchQrToken,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.green),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      "Refresh Kode",
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  ),
+                  child: const Text(
+                    "Refresh Kode",
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Tombol Konfirmasi
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed:
+                      _sessionId ==
+                          null // Disable jika sesi belum ada
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SetorSampahScreen(
+                                sessionId: _sessionId,
+                              ), // KIRIM sessionId DI SINI
+                            ),
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Lanjut ke Konfirmasi",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -310,7 +358,6 @@ class _ScanPageState extends State<ScanPage> {
   }
 }
 
-// --- WIDGET FRAME (ASLI DARI KODEMU) ---
 class CustomBarcodeFrame extends StatelessWidget {
   final double size;
   const CustomBarcodeFrame({super.key, required this.size});
@@ -333,9 +380,7 @@ class BarcodeFramePainter extends CustomPainter {
       ..strokeWidth = 6
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
     double cornerSize = 40;
-
     canvas.drawPath(
       Path()
         ..moveTo(0, cornerSize)

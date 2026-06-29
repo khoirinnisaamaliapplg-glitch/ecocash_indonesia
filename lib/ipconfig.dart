@@ -14,9 +14,10 @@ class ApiConfig {
       "$baseUrl/machine-sessions/$id/complete";
   static String confirmSession(String id) =>
       "$baseUrl/machine-sessions/$id/confirm";
-  // static String getMachineDetail(String id) {
-  //   return "$baseUrl/machines/$id";
-  // }
+
+ static String getSessionStatus(String id) => 
+      "$baseUrl/users/access-tokens/$id";
+
   
   static const String createOrder = "$baseUrl/orders";
   static const String getMyOrders = "$baseUrl/orders/my";
@@ -29,6 +30,15 @@ class ApiConfig {
 
   static String getNearestMachines(double latitude, double longitude) =>
       "$baseUrl/machines/nearest?latitude=$latitude&longitude=$longitude";
+    
+  // Tambahkan ini di dalam class ApiConfig
+// --- Cart Endpoints ---
+static const String getCart = "$baseUrl/cart";
+static const String clearCart = "$baseUrl/cart"; // DELETE
+static const String addToCart = "$baseUrl/cart/items"; // POST
+static String updateCartItem(int id) => "$baseUrl/cart/items/$id"; // PATCH
+static String removeCartItem(int id) => "$baseUrl/cart/items/$id"; // DELETE
+static const String checkoutCart = "$baseUrl/cart/checkout"; // POST
 
   // Variabel untuk menyimpan token setelah login
   static String? userToken;

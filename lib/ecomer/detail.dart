@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ecocash_indonesia/ecomer/confir.dart';
+import 'package:ecocash_indonesia/ipconfig.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class DetailPage extends StatelessWidget {
   // Tambahkan variabel untuk menerima data produk
@@ -17,42 +20,88 @@ class DetailPage extends StatelessWidget {
           _buildHeaderSection(context),
 
           // 2. Spacer & Tombol Konfirmasi
+          // 2. Spacer & Tombol Aksi
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Navigasi ke halaman konfirmasi dengan data produk
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ConfirmationPage(product: product),
+                  Row(
+                    children: [
+                      // Tombol Add to Cart
+                      Expanded(
+                        child: SizedBox(
+                          height: 55,
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              // Panggil API Add to Cart
+                              final response = await http.post(
+                                Uri.parse(ApiConfig.addToCart),
+                                headers: ApiConfig.headers,
+                                body: json.encode({
+                                  "productId": product['id'],
+                                  "quantity": 1,
+                                }),
+                              );
+                              if (response.statusCode == 200) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Berhasil ditambahkan ke keranjang!",
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.blueAccent),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Keranjang",
+                              style: TextStyle(
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        "Confirm now",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 15),
+                      // Tombol Buy Now (Confirm Now)
+                      Expanded(
+                        child: SizedBox(
+                          height: 55,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ConfirmationPage(product: product),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Beli Sekarang",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

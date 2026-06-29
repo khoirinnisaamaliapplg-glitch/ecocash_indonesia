@@ -1,22 +1,34 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/bantuan/bantuan.dart';
 import 'package:ecocash_indonesia/ecomer/ecomer.dart';
 import 'package:ecocash_indonesia/history/refund.dart';
-import 'package:ecocash_indonesia/ipconfig.dart'; // Pastikan ini ada
 import 'package:ecocash_indonesia/maps/maps.dart';
 import 'package:ecocash_indonesia/saldo/saldo.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
 import 'package:ecocash_indonesia/tf/transfer.dart';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  // Fungsi untuk mengambil data dari API
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late Future<Map<String, dynamic>> _userDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userDataFuture = _fetchUserData();
+  }
+
   Future<Map<String, dynamic>> _fetchUserData() async {
     final response = await http.get(
-      Uri.parse(ApiConfig.getMyWallet), // Pastikan endpoint di ApiConfig benar
+      Uri.parse(ApiConfig.getMyWallet),
       headers: {
         'Authorization': 'Bearer ${ApiConfig.userToken}',
         'Content-Type': 'application/json',
@@ -30,32 +42,42 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _refreshData() async {
+    setState(() {
+      _userDataFuture = _fetchUserData();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _fetchUserData(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _userDataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text("Error: ${snapshot.error}"));
+            }
 
-          final data = snapshot.data!;
+            final data = snapshot.data!;
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                SizedBox(height: 450, child: _buildHeader(context, data)),
-                const SizedBox(height: 40),
-                _buildCombinedPaymentMenu(context),
-                const SizedBox(height: 50),
-              ],
-            ),
-          );
-        },
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  SizedBox(height: 450, child: _buildHeader(context, data)),
+                  const SizedBox(height: 40),
+                  _buildCombinedPaymentMenu(context),
+                  const SizedBox(height: 50),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -165,7 +187,7 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const ScanPage()),
-                ),
+                ).then((_) => _refreshData()),
               ),
               _buildActionItem(
                 context,
@@ -174,7 +196,7 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const IsiSaldoPage()),
-                ),
+                ).then((_) => _refreshData()),
               ),
               _buildActionItem(
                 context,
@@ -183,7 +205,7 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const TransferPage()),
-                ),
+                ).then((_) => _refreshData()),
               ),
               _buildActionItem(
                 context,
@@ -203,7 +225,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget helper lainnya tetap sama ---
   Widget _buildActionItem(
     BuildContext context,
     String path,
@@ -231,6 +252,32 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, String path) {
+    return Row(
+      children: [
+        Image.asset(path, height: 35, width: 35),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3E50),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -336,32 +383,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, String path) {
-    return Row(
-      children: [
-        Image.asset(path, height: 35, width: 35),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3E50),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
