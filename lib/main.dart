@@ -19,7 +19,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'EcoCash',
+      title: 'EcoCash Indonesia',
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.green, // Tema hijau untuk EcoCash

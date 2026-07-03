@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Untuk HapticFeedback
 import 'package:http/http.dart' as http;
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/setor_sampah/transaksi.dart';
 
 class SetorSampahScreen extends StatefulWidget {
-  final String? sessionId;
+  final int? sessionId;
 
   const SetorSampahScreen({super.key, this.sessionId});
 
@@ -20,10 +21,18 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
   String _statusMesin = "Menunggu mesin selesai menimbang...";
   Timer? _timer;
 
+  // Timeout setelah 5 menit agar tidak terus-menerus polling
+  int _secondsElapsed = 0;
+  final int _maxSeconds = 300;
+
   @override
   void initState() {
     super.initState();
-    _startPolling();
+    if (widget.sessionId != null) {
+      _startPolling();
+    } else {
+      _statusMesin = "ID Sesi tidak ditemukan.";
+    }
   }
 
   @override
@@ -33,77 +42,83 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
   }
 
   void _startPolling() {
-  _timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-    try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.getSessionDetail(widget.sessionId!)),
-        headers: ApiConfig.headers,
-      );
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      _secondsElapsed += 2;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        debugPrint("Status dari server: ${data['status']}");
+      if (!mounted || _secondsElapsed >= _maxSeconds) {
+        timer.cancel();
+        if (mounted && !_isReadyToConfirm) {
+          setState(
+            () => _statusMesin = "Waktu tunggu habis. Silakan scan ulang.",
+          );
+        }
+        return;
+      }
 
-        // Ganti 'completed' menjadi 'WAITING_CONFIRMATION'
-        if (data['status'] == 'WAITING_CONFIRMATION') {
-          timer.cancel();
-          if (mounted) {
+      try {
+        // PENTING: Pastikan parameter adalah int, ApiConfig akan menghandle konversi ke string URL
+        final response = await http.get(
+          Uri.parse(ApiConfig.getSessionDetail(widget.sessionId!.toString())),
+          headers: ApiConfig.headers,
+        );
+
+        if (response.statusCode == 200 && mounted) {
+          final data = jsonDecode(response.body);
+          // Sesuaikan dengan struktur response detail session Anda
+          String status = data['status']?.toString().trim().toUpperCase() ?? "";
+
+          if (status == 'WAITING_CONFIRMATION') {
+            timer.cancel();
+            HapticFeedback.heavyImpact();
             setState(() {
-              _statusMesin = "Selesai! Silakan konfirmasi.";
+              _statusMesin = "Selesai! Silakan konfirmasi untuk proses data.";
               _isReadyToConfirm = true;
             });
+          } else if (status == 'CANCELLED' || status == 'FAILED') {
+            timer.cancel();
+            setState(() => _statusMesin = "Transaksi gagal/dibatalkan.");
           }
-        } 
-        // Tambahan: Tangani jika sesi dibatalkan oleh mesin
-        else if (data['status'] == 'CANCELLED') {
-           timer.cancel();
-           // Tampilkan pesan error atau kembali ke halaman sebelumnya
-           _showSnackBar("Sesi dibatalkan oleh mesin", Colors.red);
         }
+      } catch (e) {
+        debugPrint("Polling error: $e");
       }
-    } catch (e) {
-      debugPrint("Error saat polling: $e");
-    }
-  });
-}
+    });
+  }
 
   Future<void> _handleConfirm() async {
-    if (!_isReadyToConfirm) return;
+    if (!_isReadyToConfirm || widget.sessionId == null) return;
 
     setState(() => _isLoading = true);
 
     try {
+      // Pastikan fungsi confirmSession di ApiConfig menerima int
       final response = await http.post(
-        Uri.parse(ApiConfig.confirmSession(widget.sessionId!)),
+        Uri.parse(ApiConfig.confirmSession(widget.sessionId!.toString())),
         headers: ApiConfig.headers,
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && mounted) {
         final responseData = jsonDecode(response.body);
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  TransaksiBerhasilScreen(detailTransaksi: responseData),
-            ),
-            (route) => route.isFirst,
-          );
-        }
-      } else {
-        _showSnackBar(
-          "Gagal konfirmasi: ${jsonDecode(response.body)['message']}",
-          Colors.red,
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                TransaksiBerhasilScreen(detailTransaksi: responseData),
+          ),
+          (route) => route.isFirst,
         );
+      } else {
+        _showSnackBar("Gagal konfirmasi: ${response.statusCode}", Colors.red);
       }
     } catch (e) {
-      _showSnackBar("Koneksi terputus.", Colors.red);
+      _showSnackBar("Koneksi bermasalah: $e", Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showSnackBar(String message, Color color) {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
@@ -111,101 +126,77 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                _buildHeader(context),
-                Positioned(
-                  top: 150,
-                  left: 20,
-                  right: 20,
-                  child: _buildScanResultCard(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomAction(context),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      height: 280,
-      width: double.infinity,
-      decoration: const BoxDecoration(color: Color(0xFF4CAF50)),
-      padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Text(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) => _timer?.cancel(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF4CAF50),
+          title: const Text(
             'Setor Sampah',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScanResultCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Status Transaksi',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          if (!_isReadyToConfirm) const CircularProgressIndicator(),
-          const SizedBox(height: 15),
-          Text(
-            _statusMesin,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _isReadyToConfirm ? Colors.green : Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomAction(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-      child: ElevatedButton(
-        onPressed: (_isReadyToConfirm && !_isLoading) ? _handleConfirm : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF388E3C),
-          minimumSize: const Size(double.infinity, 55),
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
-        child: _isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Text(
-                _isReadyToConfirm ? 'Konfirmasi SDU' : 'Menunggu Selesai...',
-                style: const TextStyle(color: Colors.white),
+        body: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 10),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    if (!_isReadyToConfirm) ...[
+                      const CircularProgressIndicator(color: Color(0xFF4CAF50)),
+                      const SizedBox(height: 20),
+                    ],
+                    Text(
+                      _statusMesin,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: _isReadyToConfirm
+                            ? Colors.green[700]
+                            : Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: ElevatedButton(
+            onPressed: (_isReadyToConfirm && !_isLoading)
+                ? _handleConfirm
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF388E3C),
+              minimumSize: const Size(double.infinity, 55),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text(
+                    "Konfirmasi Transaksi",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+          ),
+        ),
       ),
     );
   }

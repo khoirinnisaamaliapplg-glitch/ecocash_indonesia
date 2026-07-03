@@ -12,7 +12,7 @@ class EcoCashKidsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'EcoCash Kids - Splash',
+      title: 'EcoCash Indonesia',
       theme: ThemeData(
         primaryColor: const Color(0xFF54D2F4),
         scaffoldBackgroundColor: Colors.white,

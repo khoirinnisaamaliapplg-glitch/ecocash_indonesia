@@ -15,7 +15,7 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage> {
   String? _qrToken;
-  String? _sessionId; // Variabel baru untuk menampung ID sesi
+  int? _sessionId;
   bool _isLoading = true;
   Timer? _timer;
   int _secondsLeft = 30;
@@ -33,34 +33,18 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
-  // Fungsi Cek Status Sesi (Polling)
-  // Di ScanPage.dart, ubah _checkSessionStatus menjadi:
   Future<void> _checkSessionStatus() async {
     if (_sessionId == null) return;
 
     try {
-      // Gunakan endpoint yang sama dengan SetorSampahScreen
       final response = await http.get(
-        Uri.parse(ApiConfig.getSessionDetail(_sessionId!)),
+        Uri.parse(ApiConfig.getSessionDetail(_sessionId!.toString())),
         headers: ApiConfig.headers,
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         debugPrint("ScanPage melihat status: ${data['status']}");
-
-        if (data['status'] == 'WAITING_CONFIRMATION') {
-          _timer?.cancel();
-          if (mounted) {
-            // Pindahkan ke halaman konfirmasi dan bawa sessionId-nya
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => SetorSampahScreen(sessionId: _sessionId),
-              ),
-            );
-          }
-        }
       }
     } catch (e) {
       debugPrint("Error di ScanPage: $e");
@@ -72,7 +56,6 @@ class _ScanPageState extends State<ScanPage> {
     _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (!mounted) return;
 
-      // Panggil pengecekan status setiap 2 detik
       _checkSessionStatus();
 
       setState(() {
@@ -109,7 +92,7 @@ class _ScanPageState extends State<ScanPage> {
         if (mounted) {
           setState(() {
             _qrToken = newToken;
-            _sessionId = newSessionId; // Simpan session ID
+            _sessionId = int.tryParse(newSessionId ?? '');
             _secondsLeft = 30;
             _isLoading = false;
           });
@@ -134,18 +117,12 @@ class _ScanPageState extends State<ScanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      // Menggunakan LayoutBuilder untuk membuat UI responsif terhadap tinggi layar
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                children: [
-                  _buildHeader(context),
-                  // Tidak perlu SizedBox(height: 580) lagi
-                ],
-              ),
+              child: Column(children: [_buildHeader(context)]),
             ),
           );
         },
@@ -157,7 +134,6 @@ class _ScanPageState extends State<ScanPage> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Container latar belakang hijau
         Container(
           height: 280,
           width: double.infinity,
@@ -198,8 +174,6 @@ class _ScanPageState extends State<ScanPage> {
             ],
           ),
         ),
-
-        // Card Utama
         Container(
           margin: const EdgeInsets.only(
             top: 130,
@@ -292,8 +266,6 @@ class _ScanPageState extends State<ScanPage> {
                 errorBuilder: (c, e, s) => const SizedBox(height: 200),
               ),
               const SizedBox(height: 20),
-
-              // Tombol Refresh
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -313,27 +285,20 @@ class _ScanPageState extends State<ScanPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 10),
-
-              // Tombol Konfirmasi
+              // TOMBOL KONFIRMASI MANUAL
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed:
-                      _sessionId ==
-                          null // Disable jika sesi belum ada
-                      ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SetorSampahScreen(
-                                sessionId: _sessionId,
-                              ), // KIRIM sessionId DI SINI
-                            ),
-                          );
-                        },
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            SetorSampahScreen(sessionId: _sessionId),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 12),
