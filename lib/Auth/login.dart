@@ -1,4 +1,5 @@
 import 'package:ecocash_indonesia/home.dart';
+import 'package:ecocash_indonesia/Auth/registrasi.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -263,7 +264,14 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const Text("Don't have an account? "),
                     GestureDetector(
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterPage(),
+                          ),
+                        );
+                      },
                       child: const Text(
                         'Sign Up',
                         style: TextStyle(

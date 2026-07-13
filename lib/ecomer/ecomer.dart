@@ -47,8 +47,23 @@ class _EcomerPageState extends State<EcomerPage> {
       backgroundColor: const Color(0xFFF5F5F5),
       body: Column(
         children: [
-          _buildHeaderSection(context),
-          const SizedBox(height: 70),
+          // Gabungkan header dan card dalam stack agar layout konsisten
+          SizedBox(
+            height: 290, // Header (240) + setengah tinggi card
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _buildHeaderSection(context),
+                Positioned(
+                  bottom: 0,
+                  left: 20,
+                  right: 20,
+                  child: _buildBalanceCard(context),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 20),
@@ -61,56 +76,45 @@ class _EcomerPageState extends State<EcomerPage> {
   }
 
   Widget _buildHeaderSection(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 240,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          padding: const EdgeInsets.only(top: 60, left: 20),
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Back',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return Container(
+      height: 240,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/bg.png'),
+          fit: BoxFit.cover,
         ),
-        Positioned(
-          bottom: -50,
-          left: 20,
-          right: 20,
-          child: _buildBalanceCard(context),
+      ),
+      padding: const EdgeInsets.only(top: 60, left: 20),
+      child: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Back',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -134,31 +138,25 @@ class _EcomerPageState extends State<EcomerPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Ikon Utama
               const Icon(
                 Icons.receipt_long,
                 size: 35,
                 color: Colors.blueAccent,
               ),
-
-              // Tombol Navigasi ke Cart
               IconButton(
                 icon: const Icon(
                   Icons.shopping_cart_outlined,
                   color: Colors.blueAccent,
                   size: 28,
                 ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => CartScreen()),
-                  );
-                },
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CartScreen()),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // Judul Utama
           const Text(
             "Exchange of Goods",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -169,27 +167,26 @@ class _EcomerPageState extends State<EcomerPage> {
             style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
           const SizedBox(height: 16),
-          // Tombol ke OrderPage
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          // Bungkus dengan Material agar klik selalu terdeteksi setelah balik dari page lain
+          Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () {
-                Navigator.push(
+                onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => OrdersPage(),
-                  ), // Pastikan OrderPage sudah ter-import
-                );
-              },
-              child: const Text("Lihat Riwayat Pesanan"),
+                  MaterialPageRoute(builder: (context) => const OrdersPage()),
+                ),
+                child: const Text("Lihat Riwayat Pesanan"),
+              ),
             ),
           ),
         ],
@@ -269,11 +266,10 @@ class _EcomerPageState extends State<EcomerPage> {
                     childAspectRatio: 0.65,
                   ),
                   itemCount: products.length,
-                  itemBuilder: (context, index) {
-                    // MENGIRIM ITEM SEBAGAI MAP
-                    final item = products[index] as Map<String, dynamic>;
-                    return _buildProductItem(context, item);
-                  },
+                  itemBuilder: (context, index) => _buildProductItem(
+                    context,
+                    products[index] as Map<String, dynamic>,
+                  ),
                 ),
               ),
             ],
@@ -283,7 +279,6 @@ class _EcomerPageState extends State<EcomerPage> {
     );
   }
 
-  // FUNGSI DIPERBAIKI: Menerima Map item bukan sekadar string
   Widget _buildProductItem(BuildContext context, Map<String, dynamic> item) {
     return GestureDetector(
       onTap: () => Navigator.push(

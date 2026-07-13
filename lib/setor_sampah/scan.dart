@@ -287,20 +287,26 @@ class _ScanPageState extends State<ScanPage> {
               ),
               const SizedBox(height: 10),
               // TOMBOL KONFIRMASI MANUAL
+              // Ganti bagian tombol konfirmasi Anda dengan ini:
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            SetorSampahScreen(sessionId: _sessionId),
-                      ),
-                    );
-                  },
+                  // Tombol di-disable (null) jika masih loading atau sessionId null
+                  onPressed: (_isLoading || _sessionId == null)
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  SetorSampahScreen(sessionId: _sessionId!),
+                            ),
+                          );
+                        },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: (_isLoading || _sessionId == null)
+                        ? Colors.grey
+                        : Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

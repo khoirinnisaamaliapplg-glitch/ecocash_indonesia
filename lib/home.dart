@@ -36,9 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body)['data'];
+      final jsonResponse = jsonDecode(response.body);
+      return jsonResponse['data'] as Map<String, dynamic>;
     } else {
-      throw Exception('Gagal memuat profil');
+      throw Exception('Gagal memuat profil: ${response.statusCode}');
     }
   }
 
@@ -63,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return Center(child: Text("Error: ${snapshot.error}"));
             }
 
-            final data = snapshot.data!;
+            final data = snapshot.data ?? {};
 
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -83,6 +84,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(BuildContext context, Map<String, dynamic> data) {
+    // Memastikan nama terambil dengan aman
+    final String username = data['username']?.toString() ?? 'User';
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -102,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hi, ${data['name'] ?? 'User'}!',
+                  'Hi, $username!',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
