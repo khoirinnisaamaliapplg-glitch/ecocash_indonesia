@@ -1,3 +1,4 @@
+import 'package:ecocash_indonesia/home.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
 import 'package:flutter/material.dart';
 
@@ -203,7 +204,11 @@ class TransaksiBerhasilScreen extends StatelessWidget {
         children: [
           OutlinedButton(
             onPressed: () =>
-                Navigator.of(context).popUntil((route) => route.isFirst),
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                  (route) => false,
+                ),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Color(0xFF4CAF50)),
               minimumSize: const Size(double.infinity, 55),

@@ -6,9 +6,12 @@ import 'package:ecocash_indonesia/ecomer/OrdersPage.dart';
 import 'package:ecocash_indonesia/ecomer/orderdetail.dart';
 import 'package:ecocash_indonesia/ecomer/cart.dart';
 import 'package:flutter/material.dart';
+import 'package:ecocash_indonesia/ipconfig.dart';
 // import 'Auth/login.dart';
 
 void main() {
+  // Set your machine's local IP for physical Android device connection
+  ApiConfig.customHost = "192.168.28.94";
   runApp(const MainApp());
 }
 

@@ -24,7 +24,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Future<void> _fetchOrderDetail() async {
     try {
       final response = await http.get(
-        Uri.parse("${ApiConfig.baseUrl}/api/v1/orders/${widget.orderId}"),
+        Uri.parse(ApiConfig.getOrderById(widget.orderId.toString())),
         headers: ApiConfig.headers,
       );
       if (response.statusCode == 200) {

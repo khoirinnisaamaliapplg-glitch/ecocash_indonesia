@@ -14,8 +14,7 @@ class ScanPage extends StatefulWidget {
 }
 
 class _ScanPageState extends State<ScanPage> {
-  String? _qrToken;
-  int? _sessionId;
+  String? _qrToken;       // The access token ID displayed as QR
   bool _isLoading = true;
   Timer? _timer;
   int _secondsLeft = 30;
@@ -24,7 +23,6 @@ class _ScanPageState extends State<ScanPage> {
   void initState() {
     super.initState();
     _fetchQrToken();
-    _startTimer();
   }
 
   @override
@@ -33,18 +31,53 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
+  /// Polls the access-token endpoint to detect when the machine has scanned
+  /// the QR code and started a session.
+  ///
+  /// The backend returns:
+  ///   GET /users/access-tokens/{tokenId}
+  ///   {
+  ///     data: {
+  ///       id: "...",
+  ///       isUsed: true,
+  ///       expiresAt: "...",
+  ///       machineSession: { id: 12, status: "ACTIVE" } | null
+  ///     }
+  ///   }
+  ///
+  /// When machineSession is not null, the machine has scanned the QR
+  /// and started the session → navigate to the confirmation screen.
   Future<void> _checkSessionStatus() async {
-    if (_sessionId == null) return;
+    if (_qrToken == null) return;
 
     try {
       final response = await http.get(
-        Uri.parse(ApiConfig.getSessionDetail(_sessionId!.toString())),
+        Uri.parse(ApiConfig.getSessionStatus(_qrToken!)),
         headers: ApiConfig.headers,
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        debugPrint("ScanPage melihat status: ${data['status']}");
+      if (response.statusCode == 200 && mounted) {
+        final body = jsonDecode(response.body);
+        final data = body['data'];
+        final machineSession = data?['machineSession'];
+
+        if (machineSession != null) {
+          final int newSessionId = machineSession['id'] as int;
+          final String status =
+              (machineSession['status']?.toString() ?? '').toUpperCase();
+
+          debugPrint("ScanPage: machine scanned! sessionId=$newSessionId status=$status");
+
+          _timer?.cancel();
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  SetorSampahScreen(sessionId: newSessionId),
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint("Error di ScanPage: $e");
@@ -86,13 +119,12 @@ class _ScanPageState extends State<ScanPage> {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
+        // GET /users/me/qr returns { data: { token, expiresAt } }
         String? newToken = responseData['data']?['token']?.toString();
-        String? newSessionId = responseData['data']?['session_id']?.toString();
 
         if (mounted) {
           setState(() {
             _qrToken = newToken;
-            _sessionId = int.tryParse(newSessionId ?? '');
             _secondsLeft = 30;
             _isLoading = false;
           });
@@ -286,25 +318,48 @@ class _ScanPageState extends State<ScanPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              // TOMBOL KONFIRMASI MANUAL
-              // Ganti bagian tombol konfirmasi Anda dengan ini:
+              // TOMBOL KONFIRMASI MANUAL (fallback if auto-navigate doesn't work)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  // Tombol di-disable (null) jika masih loading atau sessionId null
-                  onPressed: (_isLoading || _sessionId == null)
+                  onPressed: (_isLoading || _qrToken == null)
                       ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  SetorSampahScreen(sessionId: _sessionId!),
-                            ),
-                          );
+                      : () async {
+                          // Try to get session ID from the access token
+                          try {
+                            final response = await http.get(
+                              Uri.parse(ApiConfig.getSessionStatus(_qrToken!)),
+                              headers: ApiConfig.headers,
+                            );
+                            if (response.statusCode == 200 && mounted) {
+                              final body = jsonDecode(response.body);
+                              final machineSession =
+                                  body['data']?['machineSession'];
+                              if (machineSession != null) {
+                                final int sid =
+                                    machineSession['id'] as int;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        SetorSampahScreen(sessionId: sid),
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+                          } catch (_) {}
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    "Mesin belum memindai QR. Arahkan QR ke scanner mesin."),
+                              ),
+                            );
+                          }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: (_isLoading || _sessionId == null)
+                    backgroundColor: (_isLoading || _qrToken == null)
                         ? Colors.grey
                         : Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 12),
