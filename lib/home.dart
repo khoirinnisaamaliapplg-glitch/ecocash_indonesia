@@ -9,6 +9,7 @@ import 'package:ecocash_indonesia/maps/maps.dart';
 import 'package:ecocash_indonesia/saldo/saldo.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
 import 'package:ecocash_indonesia/tf/transfer.dart';
+import 'package:ecocash_indonesia/profile/profile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -378,7 +379,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       _buildDivider(),
-                      _buildMenuTile('assets/icons/plus.png', "Other"),
+                      _buildMenuTile(
+                        'assets/icons/plus.png',
+                        "Other",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ProfilePage(),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -391,14 +401,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMenuTile(String path, String title, {VoidCallback? onTap}) {
-    return ListTile(
-      leading: Image.asset(path, height: 30, width: 30),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: Image.asset(path, height: 30, width: 30),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        trailing: const Icon(Icons.chevron_right, size: 18),
+        onTap: onTap,
       ),
-      trailing: const Icon(Icons.chevron_right, size: 18),
-      onTap: onTap,
     );
   }
 

@@ -246,29 +246,32 @@ class _MapsState extends State<Maps> {
         if (_isLoading) return const Center(child: CircularProgressIndicator());
 
         final machine = _machines[index - 2];
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const CircleAvatar(
-            backgroundColor: Color(0xFFE1F5FE),
-            child: Icon(Icons.recycling, color: Colors.blue),
-          ),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  machine['name'] ?? 'Tanpa Nama',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+        return Material(
+          color: Colors.transparent,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(
+              backgroundColor: Color(0xFFE1F5FE),
+              child: Icon(Icons.recycling, color: Colors.blue),
+            ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    machine['name'] ?? 'Tanpa Nama',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              Text(
-                "${machine['distance'] ?? 0} km",
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ],
+                Text(
+                  "${machine['distance'] ?? 0} km",
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+            subtitle: Text(machine['address'] ?? 'Tanpa Alamat'),
+            onTap: () => _openDetail(machine),
           ),
-          subtitle: Text(machine['address'] ?? 'Tanpa Alamat'),
-          onTap: () => _openDetail(machine),
         );
       },
     );

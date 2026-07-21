@@ -11,9 +11,10 @@ import 'package:ecocash_indonesia/ipconfig.dart';
 
 void main() {
   // Set your machine's local IP for physical Android device connection
-  ApiConfig.customHost = "192.168.28.94";
+  ApiConfig.customHost = "127.0.0.1";
   runApp(const MainApp());
 }
+
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});

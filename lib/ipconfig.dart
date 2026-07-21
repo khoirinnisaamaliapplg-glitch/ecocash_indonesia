@@ -6,14 +6,14 @@ class ApiConfig {
   /// Set to `null` to use automatic platform detection.
   static String? customHost;
 
-  /// The port your Docker API is running on.
+  // / The port your Docker API is running on.
   static const int port = 3000;
 
-  /// Automatically resolves the correct host based on the platform:
-  /// - Android emulator → 10.0.2.2 (host loopback)
-  /// - Android physical → uses [customHost] if set, otherwise falls back to 10.0.2.2
-  /// - iOS simulator   → localhost (runs on host machine)
-  /// - Web / Desktop   → localhost
+  // / Automatically resolves the correct host based on the platform:
+  // / - Android emulator → 10.0.2.2 (host loopback)
+  // / - Android physical → uses [customHost] if set, otherwise falls back to 10.0.2.2
+  // / - iOS simulator   → localhost (runs on host machine)
+  // / - Web / Desktop   → localhost
   static String get _host {
     // If a custom host is explicitly provided, use it (for physical Android devices)
     if (customHost != null) return customHost!;
@@ -32,9 +32,14 @@ class ApiConfig {
   }
 
   static String get baseUrl => "http://$_host:$port/api/v1";
+  // static const String baseUrl = "http://localhost:3000/api/v1";
 
   static String get login => "$baseUrl/auth/login";
   static String get register => "$baseUrl/auth";
+
+  // --- User ---
+  static String get getUserProfile => "$baseUrl/users/me";
+  static String get updateProfile => "$baseUrl/users/me";
 
   // --- Machine Sessions APIs ---
   static String get startSession => "$baseUrl/machine-sessions/start";
@@ -43,10 +48,13 @@ class ApiConfig {
   static String get getProducts => "$baseUrl/products/marketplace";
 
   static String getSessionDetail(String id) => "$baseUrl/machine-sessions/$id";
-  static String completeSession(String id) => "$baseUrl/machine-sessions/$id/complete";
-  static String confirmSession(String id) => "$baseUrl/machine-sessions/$id/confirm";
+  static String completeSession(String id) =>
+      "$baseUrl/machine-sessions/$id/complete";
+  static String confirmSession(String id) =>
+      "$baseUrl/machine-sessions/$id/confirm";
 
-  static String getSessionStatus(String id) => "$baseUrl/users/access-tokens/$id";
+  static String getSessionStatus(String id) =>
+      "$baseUrl/users/access-tokens/$id";
 
   static String get createOrder => "$baseUrl/orders";
   static String get getMyOrders => "$baseUrl/orders/my";
