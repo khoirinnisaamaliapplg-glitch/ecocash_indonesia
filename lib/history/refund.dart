@@ -12,6 +12,8 @@ class RefundsScreen extends StatefulWidget {
 
 class _RefundsScreenState extends State<RefundsScreen> {
   late Future<List<dynamic>> _refundsFuture;
+  final Map<int, Map<String, dynamic>> _sessionDetails = {};
+  final Set<int> _loadingDetails = {};
 
   @override
   void initState() {
@@ -28,15 +30,72 @@ class _RefundsScreenState extends State<RefundsScreen> {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
-
-        // SESUAIKAN key 'data' di bawah ini dengan struktur JSON API Anda
-        // Jika list data Anda berada di key lain, ganti 'data' dengan nama key tersebut
         return responseData['data'] ?? [];
       } else {
         throw Exception('Gagal memuat data: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Terjadi kesalahan: $e');
+    }
+  }
+
+  Future<void> _fetchSessionDetail(int sessionId) async {
+    if (_sessionDetails.containsKey(sessionId)) return;
+    
+    setState(() => _loadingDetails.add(sessionId));
+    
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.getSessionDetail(sessionId.toString())),
+        headers: ApiConfig.headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _sessionDetails[sessionId] = data;
+          _loadingDetails.remove(sessionId);
+        });
+      }
+    } catch (_) {
+      setState(() => _loadingDetails.remove(sessionId));
+    }
+  }
+
+  String _formatRupiah(dynamic price) {
+    final p = (price is num)
+        ? (price).toDouble()
+        : double.tryParse(price.toString()) ?? 0;
+    final parts = p.round().toString().split('');
+    final buffer = StringBuffer();
+    for (int i = 0; i < parts.length; i++) {
+      if (i > 0 && (parts.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(parts[i]);
+    }
+    return 'Rp ${buffer.toString()}';
+  }
+
+  String _formatMonth(String? startedAt) {
+    if (startedAt == null) return 'N/A';
+    try {
+      final date = DateTime.parse(startedAt);
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      return '${months[date.month - 1]} ${date.year}';
+    } catch (_) {
+      return 'N/A';
+    }
+  }
+
+  String _translateStatus(String? status) {
+    switch (status) {
+      case 'COMPLETED': return 'Completed';
+      case 'WAITING_CONFIRMATION': return 'Waiting';
+      case 'CANCELLED': return 'Cancelled';
+      case 'ACTIVE': return 'Active';
+      default: return status ?? 'Paid Out';
     }
   }
 
@@ -98,6 +157,12 @@ class _RefundsScreenState extends State<RefundsScreen> {
               separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final item = data[index];
+                final sessionId = item['id'];
+                final monthLabel = _formatMonth(item['startedAt']);
+                final location = item['machine']?['name'] ?? 'N/A';
+                final amountText = _formatRupiah(item['totalPrice']);
+                final statusLabel = _translateStatus(item['status']);
+                
                 return Theme(
                   data: Theme.of(
                     context,
@@ -109,24 +174,30 @@ class _RefundsScreenState extends State<RefundsScreen> {
                       height: 35,
                     ),
                     title: Text(
-                      item['month'] ?? 'N/A',
+                      monthLabel,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
                     subtitle: Text(
-                      'Recycled at ${item['location'] ?? 'N/A'}',
+                      'Recycled at $location',
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
+                    onExpansionChanged: (expanded) {
+                      if (expanded && sessionId != null) {
+                        _fetchSessionDetail(sessionId);
+                      }
+                    },
                     children: [
+                      // Session summary
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(72, 0, 20, 25),
+                        padding: const EdgeInsets.fromLTRB(72, 0, 20, 8),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              item['amount'] ?? 'Rp 0',
+                              amountText,
                               style: const TextStyle(
                                 color: Color(0xFF107569),
                                 fontWeight: FontWeight.bold,
@@ -145,7 +216,7 @@ class _RefundsScreenState extends State<RefundsScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                item['status'] ?? 'Paid Out',
+                                statusLabel,
                                 style: const TextStyle(
                                   color: Color(0xFF107569),
                                   fontWeight: FontWeight.bold,
@@ -156,6 +227,18 @@ class _RefundsScreenState extends State<RefundsScreen> {
                           ],
                         ),
                       ),
+                      // Waste items detail
+                      if (_loadingDetails.contains(sessionId))
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(72, 8, 20, 16),
+                          child: SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      else if (_sessionDetails.containsKey(sessionId))
+                        ..._buildWasteItems(sessionId),
                     ],
                   ),
                 );
@@ -165,6 +248,132 @@ class _RefundsScreenState extends State<RefundsScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildWasteItems(int sessionId) {
+    final detail = _sessionDetails[sessionId];
+    if (detail == null) return [];
+    
+    final items = detail['items'] as List<dynamic>? ?? [];
+    if (items.isEmpty) {
+      return [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(72, 8, 20, 16),
+          child: Text(
+            'No waste items found',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      // Header row for waste items
+      const Padding(
+        padding: EdgeInsets.fromLTRB(72, 8, 20, 4),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Text(
+                'Waste Type',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                'Weight',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                'Price',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const Divider(indent: 72, endIndent: 20),
+      // Waste item rows
+      for (final item in items)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(72, 6, 20, 6),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  item['wasteType']?.toString() ?? 'Unknown',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '${(item['weight'] is num ? (item['weight'] as num) : double.tryParse(item['weight']?.toString() ?? '0') ?? 0).toStringAsFixed(1)} kg',
+                  style: const TextStyle(fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  _formatRupiah(item['totalPrice']),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF107569),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
+      // Total summary at the bottom
+      const Divider(indent: 72, endIndent: 20),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(72, 4, 20, 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Total: ${(detail['summary']?['currentWeight'] is num ? (detail['summary']!['currentWeight'] as num) : double.tryParse(detail['summary']?['currentWeight']?.toString() ?? '0') ?? 0).toStringAsFixed(1)} kg',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            Text(
+              _formatRupiah(detail['summary']?['totalPrice']),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Color(0xFF107569),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   Widget _buildListHeader() {

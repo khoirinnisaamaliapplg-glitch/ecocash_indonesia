@@ -19,11 +19,31 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<Map<String, dynamic>> _userDataFuture;
+  String _userName = 'User';
 
   @override
   void initState() {
     super.initState();
     _userDataFuture = _fetchUserData();
+    _fetchUserName();
+  }
+
+  Future<void> _fetchUserName() async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.getMyProfile),
+        headers: {
+          'Authorization': 'Bearer ${ApiConfig.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _userName = data['name']?.toString() ?? data['username']?.toString() ?? 'User';
+        });
+      }
+    } catch (_) {}
   }
 
   Future<Map<String, dynamic>> _fetchUserData() async {
@@ -47,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _userDataFuture = _fetchUserData();
     });
+    _fetchUserName();
   }
 
   @override
@@ -84,9 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(BuildContext context, Map<String, dynamic> data) {
-    // Memastikan nama terambil dengan aman
-    final String username = data['username']?.toString() ?? 'User';
-
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -106,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hi, $username!',
+                  'Hi, $_userName!',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,

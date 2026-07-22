@@ -61,6 +61,7 @@ class ApiConfig {
   static String get checkoutCart => "$baseUrl/cart/checkout"; // POST
 
   // --- Lainnya ---
+  static String get getMyProfile => "$baseUrl/users/me";
   static String get getMyQr => "$baseUrl/users/me/qr";
   static String get getMyWallet => "$baseUrl/wallets/me";
   static String get getTransactions => "$baseUrl/wallets/me/transactions";
