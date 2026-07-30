@@ -1,37 +1,9 @@
-import 'dart:io' show Platform;
+// import 'dart:io' show Platform;
 
 class ApiConfig {
-  /// Isi IP komputer ketika menggunakan perangkat Android fisik.
-  ///
-  /// Contoh:
-  /// ApiConfig.customHost = "192.168.1.10";
-  static String? customHost;
+ static const String baseUrl = 'https://api.ecocash.id/api/v1';
+  
 
-  static const int port = 3000;
-
-  static String get _host {
-    if (customHost != null &&
-        customHost!.trim().isNotEmpty) {
-      return customHost!.trim();
-    }
-
-    try {
-      if (Platform.isAndroid) {
-        // Android Emulator mengakses localhost komputer
-        // melalui alamat 10.0.2.2.
-        return '10.0.2.2';
-      }
-    } catch (_) {
-      // Platform tidak tersedia pada Flutter Web.
-    }
-
-    // Flutter Web, Windows, macOS, dan iOS Simulator.
-    return 'localhost';
-  }
-
-  static String get baseUrl {
-    return 'http://$_host:$port/api/v1';
-  }
 
   // ============================================================
   // AUTHENTICATION
