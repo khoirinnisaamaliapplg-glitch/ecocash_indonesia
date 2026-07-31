@@ -212,6 +212,17 @@ class _MapsState extends State<Maps> {
             ),
           ),
 
+          Positioned(
+            top: 50,
+            left: 15,
+            child: FloatingActionButton(
+              mini: true,
+              backgroundColor: Colors.white,
+              onPressed: () => Navigator.pop(context),
+              child: const Icon(Icons.arrow_back, color: Colors.black),
+            ),
+          ),
+
           DraggableScrollableSheet(
             initialChildSize: 0.38,
             minChildSize: 0.15,
