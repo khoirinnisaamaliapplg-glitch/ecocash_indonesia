@@ -37,7 +37,7 @@ class DetailPage extends StatelessWidget {
                             onPressed: () async {
                               // Panggil API Add to Cart
                               final response = await http.post(
-                                Uri.parse(ApiConfig.addToCart),
+                                Uri.parse(ApiConfig.addCartItem),
                                 headers: ApiConfig.headers,
                                 body: json.encode({
                                   "productId": product['id'],
