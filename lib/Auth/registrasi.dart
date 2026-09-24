@@ -353,7 +353,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   // TITLE
                   // =================================================
                   const Text(
-                    'Create Account',
+                    'Buat Akun',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -374,7 +374,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   // NAME
                   // =================================================
                   _buildInputField(
-                    label: 'Name',
+                    label: 'Nama',
                     hint: 'Nama lengkap',
                     controller: _nameController,
                   ),
@@ -412,7 +412,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   // CONFIRM PASSWORD
                   // =================================================
                   _buildInputField(
-                    label: 'Confirm Password',
+                    label: 'Ulangi Password',
                     hint: 'Ulangi password',
                     controller: _confirmPasswordController,
                     isPassword: true,
@@ -445,7 +445,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             )
                           : const Text(
-                              'Create Account',
+                              'Buat Akun',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,

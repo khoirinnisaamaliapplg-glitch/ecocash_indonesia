@@ -12,6 +12,7 @@ import 'package:ecocash_indonesia/tf/transfer.dart';
 import 'package:ecocash_indonesia/voucher/voucher.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -230,6 +231,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openPartnerApp() async {
+    const String partnerUrl = "ecocashpartner://open";
+
+    final Uri url = Uri.parse(partnerUrl);
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      // jika aplikasi belum terinstall
+      final Uri storeUrl = Uri.parse("http://partner.ecocash.id/");
+
+      await launchUrl(storeUrl, mode: LaunchMode.externalApplication);
+    }
+  }
+
   // ============================================================
   // BUILD
   // ============================================================
@@ -362,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 5),
 
                 const Text(
-                  'Ready to recycle?',
+                  'Siap untuk mendaur ulang?',
                   style: TextStyle(color: Colors.white, fontSize: 22),
                 ),
               ],
@@ -440,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // =================================================
               Expanded(
                 child: _buildStatItem(
-                  'Carbon Saved:',
+                  'Karbon Disimpan:',
                   '${_formatCarbon(data['carbon'])} kg CO₂e',
                   'assets/icons/daun.png',
                 ),
@@ -479,7 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildActionItem(
                 context,
                 'assets/icons/scan.png',
-                'Scan Barcode',
+                'Pindai QR',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -494,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildActionItem(
                 context,
                 'assets/icons/topup.png',
-                'Top Up',
+                'Isi Ulang',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -528,7 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildActionItem(
                 context,
                 'assets/icons/lock.png',
-                'History',
+                'Riwayat',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -633,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Your active payment',
+            'Pembayaran Aktif',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -667,7 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 10),
 
                       const Text(
-                        'Digital Voucher',
+                        'Voucher Digital',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -712,8 +728,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       // NEAREST RETURN POINT
                       // =========================================
                       _buildMenuTile(
-                        'assets/icons/lokasi.png',
-                        'Find nearest return point',
+                        Icons.location_on_rounded,
+                        'Cari titik pengembalian terdekat',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -730,8 +746,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       // MARKETPLACE
                       // =========================================
                       _buildMenuTile(
-                        'assets/icons/panahb.png',
-                        'Exchange balance for goods',
+                        Icons.shopping_cart,
+                        'Tukar Saldo untuk Barang',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -748,8 +764,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       // CHARITY
                       // =========================================
                       _buildMenuTile(
-                        'assets/icons/love.png',
-                        'Charities',
+                        Icons.volunteer_activism_rounded,
+                        'Bantuan & Donasi',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -766,8 +782,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       // OTHER
                       // =========================================
                       _buildMenuTile(
-                        'assets/icons/plus.png',
-                        'Other',
+                        Icons.business_center_rounded,
+                        'EcoCash Partner',
+                        onTap: () {
+                          _openPartnerApp();
+                        },
+                      ),
+
+                      _buildDivider(),
+
+                      _buildMenuTile(
+                        Icons.person_rounded,
+                        'Profil',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -792,11 +818,11 @@ class _HomeScreenState extends State<HomeScreen> {
   // MENU TILE
   // ============================================================
 
-  Widget _buildMenuTile(String path, String title, {VoidCallback? onTap}) {
+  Widget _buildMenuTile(IconData icon, String title, {VoidCallback? onTap}) {
     return Material(
       color: Colors.transparent,
       child: ListTile(
-        leading: Image.asset(path, height: 30, width: 30),
+        leading: Icon(icon, size: 30, color: Color(0xFF64B5F6)),
         title: Text(
           title,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),

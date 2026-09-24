@@ -8,18 +8,13 @@ import 'package:ecocash_indonesia/ipconfig.dart';
 class EmailVerificationPage extends StatefulWidget {
   final String token;
 
-  const EmailVerificationPage({
-    super.key,
-    required this.token,
-  });
+  const EmailVerificationPage({super.key, required this.token});
 
   @override
-  State<EmailVerificationPage> createState() =>
-      _EmailVerificationPageState();
+  State<EmailVerificationPage> createState() => _EmailVerificationPageState();
 }
 
-class _EmailVerificationPageState
-    extends State<EmailVerificationPage> {
+class _EmailVerificationPageState extends State<EmailVerificationPage> {
   // ============================================================
   // STATE
   // ============================================================
@@ -51,9 +46,7 @@ class _EmailVerificationPageState
     debugPrint('======================================');
     debugPrint('EMAIL VERIFICATION PAGE');
     debugPrint('TOKEN AVAILABLE : ${token.isNotEmpty}');
-    debugPrint(
-      'URL             : ${ApiConfig.confirmEmailVerification}',
-    );
+    debugPrint('URL             : ${ApiConfig.confirmEmailVerification}');
     debugPrint('======================================');
     debugPrint('');
 
@@ -67,8 +60,7 @@ class _EmailVerificationPageState
       setState(() {
         _loading = false;
         _success = false;
-        _message =
-            'Token verifikasi tidak ditemukan pada link email.';
+        _message = 'Token verifikasi tidak ditemukan pada link email.';
       });
 
       return;
@@ -80,26 +72,18 @@ class _EmailVerificationPageState
       // ========================================================
 
       final response = await http.post(
-        Uri.parse(
-          ApiConfig.confirmEmailVerification,
-        ),
+        Uri.parse(ApiConfig.confirmEmailVerification),
         headers: const {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'token': token,
-        }),
+        body: jsonEncode({'token': token}),
       );
 
       debugPrint('');
       debugPrint('========== VERIFY EMAIL ==========');
-      debugPrint(
-        'STATUS : ${response.statusCode}',
-      );
-      debugPrint(
-        'BODY   : ${response.body}',
-      );
+      debugPrint('STATUS : ${response.statusCode}');
+      debugPrint('BODY   : ${response.body}');
       debugPrint('==================================');
       debugPrint('');
 
@@ -110,19 +94,14 @@ class _EmailVerificationPageState
       dynamic responseData;
 
       try {
-        responseData = jsonDecode(
-          response.body,
-        );
+        responseData = jsonDecode(response.body);
       } catch (_) {
         responseData = null;
       }
 
       final String serverMessage =
-          responseData is Map &&
-              responseData['message'] != null
-          ? responseData['message']
-                .toString()
-                .trim()
+          responseData is Map && responseData['message'] != null
+          ? responseData['message'].toString().trim()
           : '';
 
       if (!mounted) return;
@@ -131,8 +110,7 @@ class _EmailVerificationPageState
       // SUCCESS
       // ========================================================
 
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
           _loading = false;
           _success = true;
@@ -149,20 +127,14 @@ class _EmailVerificationPageState
       // ALREADY VERIFIED
       // ========================================================
 
-      final String lowerMessage =
-          serverMessage.toLowerCase();
+      final String lowerMessage = serverMessage.toLowerCase();
 
-      if (lowerMessage.contains(
-            'already verified',
-          ) ||
-          lowerMessage.contains(
-            'sudah diverifikasi',
-          )) {
+      if (lowerMessage.contains('already verified') ||
+          lowerMessage.contains('sudah diverifikasi')) {
         setState(() {
           _loading = false;
           _success = true;
-          _message =
-              'Email Anda sudah terverifikasi.';
+          _message = 'Email Anda sudah terverifikasi.';
         });
 
         return;
@@ -193,8 +165,7 @@ class _EmailVerificationPageState
       setState(() {
         _loading = false;
         _success = false;
-        _message =
-            'Tidak dapat terhubung ke server EcoCash.';
+        _message = 'Tidak dapat terhubung ke server EcoCash.';
       });
     }
   }
@@ -209,8 +180,7 @@ class _EmailVerificationPageState
     setState(() {
       _loading = true;
       _success = false;
-      _message =
-          'Memverifikasi email Anda...';
+      _message = 'Memverifikasi email Anda...';
     });
 
     await _verifyEmail();
@@ -221,11 +191,7 @@ class _EmailVerificationPageState
   // ============================================================
 
   void _goToLogin() {
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/login',
-      (route) => false,
-    );
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   // ============================================================
@@ -248,21 +214,16 @@ class _EmailVerificationPageState
             ),
 
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 30,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
 
               child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 30),
 
                   // =================================================
                   // LOGO
                   // =================================================
-
                   Image.asset(
                     'assets/logo.png',
                     height: 110,
@@ -274,7 +235,6 @@ class _EmailVerificationPageState
                   // =================================================
                   // LOADING
                   // =================================================
-
                   if (_loading) ...[
                     Container(
                       width: 100,
@@ -284,10 +244,9 @@ class _EmailVerificationPageState
                         color: Color(0xFFE8F5E9),
                         shape: BoxShape.circle,
                       ),
-                      child:
-                          const CircularProgressIndicator(
-                            color: Color(0xFF2E7D32),
-                          ),
+                      child: const CircularProgressIndicator(
+                        color: Color(0xFF2E7D32),
+                      ),
                     ),
 
                     const SizedBox(height: 30),
@@ -306,41 +265,29 @@ class _EmailVerificationPageState
                   // =================================================
                   // RESULT
                   // =================================================
-
                   if (!_loading) ...[
                     Container(
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
                         color: _success
-                            ? const Color(
-                                0xFFE8F5E9,
-                              )
-                            : const Color(
-                                0xFFFFEBEE,
-                              ),
+                            ? const Color(0xFFE8F5E9)
+                            : const Color(0xFFFFEBEE),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         _success
-                            ? Icons
-                                  .check_circle_outline
+                            ? Icons.check_circle_outline
                             : Icons.error_outline,
                         size: 60,
-                        color: _success
-                            ? const Color(
-                                0xFF2E7D32,
-                              )
-                            : Colors.red,
+                        color: _success ? const Color(0xFF2E7D32) : Colors.red,
                       ),
                     ),
 
                     const SizedBox(height: 28),
 
                     Text(
-                      _success
-                          ? 'Email Verified!'
-                          : 'Verifikasi Gagal',
+                      _success ? 'Email Verified!' : 'Verifikasi Gagal',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 26,
@@ -355,7 +302,6 @@ class _EmailVerificationPageState
                   // =================================================
                   // MESSAGE
                   // =================================================
-
                   Text(
                     _message,
                     textAlign: TextAlign.center,
@@ -371,33 +317,23 @@ class _EmailVerificationPageState
                   // =================================================
                   // SUCCESS BUTTON
                   // =================================================
-
                   if (!_loading && _success)
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
                         onPressed: _goToLogin,
-                        style:
-                            ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(
-                                    0xFF2E7D32,
-                                  ),
-                              shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(
-                                          10,
-                                        ),
-                                  ),
-                            ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                         child: const Text(
                           'Login Sekarang',
                           style: TextStyle(
                             color: Colors.white,
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -406,34 +342,23 @@ class _EmailVerificationPageState
                   // =================================================
                   // FAILED BUTTON
                   // =================================================
-
                   if (!_loading && !_success) ...[
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed:
-                            _retryVerification,
-                        style:
-                            ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(
-                                    0xFF2E7D32,
-                                  ),
-                              shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(
-                                          10,
-                                        ),
-                                  ),
-                            ),
+                        onPressed: _retryVerification,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                         child: const Text(
                           'Coba Verifikasi Lagi',
                           style: TextStyle(
                             color: Colors.white,
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -446,29 +371,17 @@ class _EmailVerificationPageState
                       height: 52,
                       child: OutlinedButton(
                         onPressed: _goToLogin,
-                        style:
-                            OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(
-                                  0xFF2E7D32,
-                                ),
-                              ),
-                              shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(
-                                          10,
-                                        ),
-                                  ),
-                            ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF2E7D32)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                         child: const Text(
                           'Kembali ke Login',
                           style: TextStyle(
-                            color: Color(
-                              0xFF2E7D32,
-                            ),
-                            fontWeight:
-                                FontWeight.bold,
+                            color: Color(0xFF2E7D32),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),

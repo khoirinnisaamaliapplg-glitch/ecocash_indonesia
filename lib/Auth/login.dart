@@ -368,22 +368,28 @@ class _LoginPageState extends State<LoginPage> {
   // ============================================================
 
   Widget _buildRememberForgot(double width) {
-    // ==========================================================
-    // LAYAR SANGAT KECIL
-    // ==========================================================
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
 
-    if (width < 300) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      children: [
+        // ==========================
+        // REMEMBER ME (KIRI)
+        // ==========================
+        Expanded(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
+
             children: [
               SizedBox(
-                width: 34,
-                height: 34,
+                width: 24,
+
+                height: 24,
+
                 child: Checkbox(
                   value: _rememberMe,
+
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
                   onChanged: (value) {
                     setState(() {
                       _rememberMe = value ?? false;
@@ -392,64 +398,44 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
 
-              const SizedBox(width: 4),
-
-              const Text('Remember me', style: TextStyle(fontSize: 13)),
-            ],
-          ),
-
-          TextButton(
-            onPressed: _openForgotPassword,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-            ),
-            child: const Text(
-              'Forgot password?',
-              style: TextStyle(fontSize: 13),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // ==========================================================
-    // NORMAL
-    // ==========================================================
-
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Checkbox(
-                value: _rememberMe,
-                onChanged: (value) {
-                  setState(() {
-                    _rememberMe = value ?? false;
-                  });
-                },
-              ),
+              const SizedBox(width: 8),
 
               const Flexible(
-                child: Text('Remember me', overflow: TextOverflow.ellipsis),
+                child: Text(
+                  'Ingat Saya',
+
+                  overflow: TextOverflow.ellipsis,
+
+                  style: TextStyle(fontSize: 14),
+                ),
               ),
             ],
           ),
         ),
 
-        const SizedBox(width: 4),
+        // ==========================
+        // FORGOT PASSWORD (KANAN)
+        // ==========================
+        TextButton(
+          onPressed: _openForgotPassword,
 
-        Flexible(
-          child: TextButton(
-            onPressed: _openForgotPassword,
-            child: const Text('Forgot password?', textAlign: TextAlign.right),
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+
+            minimumSize: Size.zero,
+
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+
+          child: const Text(
+            'Lupa Password?',
+
+            style: TextStyle(fontSize: 14, color: Color(0xFF2E7D32)),
           ),
         ),
       ],
     );
   }
-
   // ============================================================
   // SOCIAL LOGIN
   // ============================================================
@@ -514,7 +500,7 @@ class _LoginPageState extends State<LoginPage> {
     if (width < 220) {
       return const Center(
         child: Text(
-          'Or Sign In with',
+          'Atau Masuk Dengan',
           style: TextStyle(color: Colors.grey, fontSize: 11),
         ),
       );
@@ -527,7 +513,7 @@ class _LoginPageState extends State<LoginPage> {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 10),
           child: Text(
-            'Or Sign In with',
+            'Atau Masuk Dengan',
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ),
@@ -550,6 +536,8 @@ class _LoginPageState extends State<LoginPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final double screenWidth = constraints.maxWidth;
+            final double screenHeight = constraints.maxHeight;
+            final bool compactLayout = screenWidth < 360 || screenHeight < 700;
 
             // ==================================================
             // RESPONSIVE VALUE
@@ -561,13 +549,17 @@ class _LoginPageState extends State<LoginPage> {
                 ? 16
                 : 24;
 
-            final double logoHeight = screenWidth < 220
+            final double logoHeight = screenWidth < 220 || screenHeight < 600
                 ? 80
                 : screenWidth < 360
-                ? 110
+                ? 100
                 : 150;
 
-            final double topSpacing = screenWidth < 360 ? 24 : 50;
+            final double topSpacing = screenHeight < 600
+                ? 12
+                : screenWidth < 360
+                ? 24
+                : 50;
 
             final double titleSize = screenWidth < 300 ? 22 : 24;
 
@@ -579,9 +571,8 @@ class _LoginPageState extends State<LoginPage> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
 
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-
+                child: SizedBox(
+                  width: double.infinity,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -598,13 +589,13 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
 
-                      SizedBox(height: screenWidth < 360 ? 28 : 40),
+                      SizedBox(height: compactLayout ? 20 : 40),
 
                       // =========================================
                       // TITLE
                       // =========================================
                       Text(
-                        'Sign In',
+                        'Masuk',
                         style: TextStyle(
                           fontSize: titleSize,
                           fontWeight: FontWeight.bold,
@@ -612,7 +603,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: compactLayout ? 16 : 24),
 
                       // =========================================
                       // EMAIL
@@ -651,7 +642,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
 
-                      const SizedBox(height: 20),
+                      SizedBox(height: compactLayout ? 14 : 20),
 
                       // =========================================
                       // PASSWORD
@@ -708,14 +699,14 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
 
-                      const SizedBox(height: 10),
+                      SizedBox(height: compactLayout ? 6 : 10),
 
                       // =========================================
                       // REMEMBER / FORGOT
                       // =========================================
                       _buildRememberForgot(screenWidth),
 
-                      const SizedBox(height: 22),
+                      SizedBox(height: compactLayout ? 14 : 22),
 
                       // =========================================
                       // LOGIN
@@ -745,7 +736,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 )
                               : const Text(
-                                  'Login',
+                                  'Masuk',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -754,21 +745,21 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
 
-                      const SizedBox(height: 30),
+                      SizedBox(height: compactLayout ? 20 : 30),
 
                       // =========================================
                       // DIVIDER
                       // =========================================
                       _buildDivider(screenWidth),
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: compactLayout ? 16 : 24),
 
                       // =========================================
                       // SOCIAL
                       // =========================================
                       _buildSocialLogin(screenWidth),
 
-                      const SizedBox(height: 38),
+                      SizedBox(height: compactLayout ? 24 : 38),
 
                       // =========================================
                       // REGISTER
@@ -783,7 +774,7 @@ class _LoginPageState extends State<LoginPage> {
                             GestureDetector(
                               onTap: _openRegister,
                               child: const Text(
-                                'Sign Up',
+                                'Daftar Sekarang',
                                 style: TextStyle(
                                   color: Colors.blue,
                                   fontWeight: FontWeight.bold,
