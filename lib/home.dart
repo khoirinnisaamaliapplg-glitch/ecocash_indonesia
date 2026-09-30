@@ -10,6 +10,7 @@ import 'package:ecocash_indonesia/saldo/saldo.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
 import 'package:ecocash_indonesia/tf/transfer.dart';
 import 'package:ecocash_indonesia/voucher/voucher.dart';
+import 'package:ecocash_indonesia/pickupwaste/pickup_waste.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -786,6 +787,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         'EcoCash Partner',
                         onTap: () {
                           _openPartnerApp();
+                        },
+                      ),
+                      _buildDivider(),
+
+                      _buildMenuTile(
+                        Icons.local_shipping_rounded,
+                        'Jemput Sampah Terdekat',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PickupWastePage(),
+                            ),
+                          ).then((_) => _refreshData());
                         },
                       ),
 
