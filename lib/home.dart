@@ -28,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
     _userDataFuture = _fetchUserData();
   }
 
@@ -81,9 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // ==========================================================
 
     final dynamic decodedProfile = jsonDecode(profileResponse.body);
-
     final dynamic decodedWallet = jsonDecode(walletResponse.body);
-
     final dynamic decodedCarbon = jsonDecode(carbonResponse.body);
 
     // ==========================================================
@@ -91,9 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // ==========================================================
 
     final Map<String, dynamic> profileData = _extractDataMap(decodedProfile);
-
     final Map<String, dynamic> walletData = _extractDataMap(decodedWallet);
-
     final Map<String, dynamic> carbonData = _extractDataMap(decodedCarbon);
 
     // ==========================================================
@@ -101,13 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
     // ==========================================================
 
     debugPrint('==============================================');
-
     debugPrint('PROFILE DATA : $profileData');
-
     debugPrint('WALLET DATA  : $walletData');
-
     debugPrint('CARBON DATA  : $carbonData');
-
     debugPrint('==============================================');
 
     // ==========================================================
@@ -123,15 +114,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // carbon
       'carbon': carbonData['totalSavedKg'] ?? 0,
-
       'carbonUnit': carbonData['unit'] ?? 'kg CO2e',
-
       'carbonChange': carbonData['changePercent'] ?? 0,
-
       'totalWasteKg': carbonData['totalWasteKg'] ?? 0,
-
       'carbonTransactions': carbonData['transactions'] ?? 0,
-
       'carbonTrend': carbonData['trend'] ?? [],
     };
   }
@@ -203,13 +189,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final double number = double.tryParse(value.toString()) ?? 0;
 
-    // Jika bilangan bulat:
-    // 10.0 -> 10
     if (number == number.truncateToDouble()) {
       return number.toInt().toString();
     }
 
-    // Maksimal 2 angka desimal
     return number.toStringAsFixed(2);
   }
 
@@ -223,7 +206,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final double number = double.tryParse(value.toString()) ?? 0;
-
     final int integerValue = number.toInt();
 
     return integerValue.toString().replaceAllMapped(
@@ -234,15 +216,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openPartnerApp() async {
     const String partnerUrl = "ecocashpartner://open";
-
     final Uri url = Uri.parse(partnerUrl);
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
-      // jika aplikasi belum terinstall
       final Uri storeUrl = Uri.parse("http://partner.ecocash.id/");
-
       await launchUrl(storeUrl, mode: LaunchMode.externalApplication);
     }
   }
@@ -288,16 +267,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             size: 55,
                             color: Colors.red,
                           ),
-
                           const SizedBox(height: 15),
-
                           Text(
                             'Error: ${snapshot.error}',
                             textAlign: TextAlign.center,
                           ),
-
                           const SizedBox(height: 20),
-
                           ElevatedButton.icon(
                             onPressed: _refreshData,
                             icon: const Icon(Icons.refresh),
@@ -322,11 +297,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   SizedBox(height: 450, child: _buildHeader(context, data)),
-
                   const SizedBox(height: 40),
-
                   _buildCombinedPaymentMenu(context),
-
                   const SizedBox(height: 50),
                 ],
               ),
@@ -375,9 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 5),
-
                 const Text(
                   'Siap untuk mendaur ulang?',
                   style: TextStyle(color: Colors.white, fontSize: 22),
@@ -426,9 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Image.asset('assets/icons/dompet.png', height: 45, width: 45),
-
               const SizedBox(width: 15),
-
               Expanded(
                 child: Text(
                   'Rp${_formatBalance(data['balance'])}',
@@ -450,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // CARBON + POINT
           // ====================================================
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: dynamic_whitespace,
             children: [
               // =================================================
               // CARBON
@@ -462,9 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'assets/icons/daun.png',
                 ),
               ),
-
               const SizedBox(width: 12),
-
               // =================================================
               // POINT
               // =================================================
@@ -479,9 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
 
           const SizedBox(height: 20),
-
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
           const SizedBox(height: 20),
 
           // ====================================================
@@ -490,9 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // =================================================
               // SCAN
-              // =================================================
               _buildActionItem(
                 context,
                 'assets/icons/scan.png',
@@ -505,9 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
-              // =================================================
               // TOP UP
-              // =================================================
               _buildActionItem(
                 context,
                 'assets/icons/topup.png',
@@ -522,9 +482,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
-              // =================================================
               // TRANSFER
-              // =================================================
               _buildActionItem(
                 context,
                 'assets/icons/panah.png',
@@ -539,9 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
 
-              // =================================================
               // HISTORY
-              // =================================================
               _buildActionItem(
                 context,
                 'assets/icons/lock.png',
@@ -580,9 +536,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
             Image.asset(path, height: 35, width: 35),
-
             const SizedBox(height: 8),
-
             Text(
               label,
               textAlign: TextAlign.center,
@@ -606,9 +560,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         Image.asset(path, height: 35, width: 35),
-
         const SizedBox(width: 10),
-
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,9 +571,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-
               const SizedBox(height: 2),
-
               Text(
                 value,
                 maxLines: 1,
@@ -657,9 +607,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Color(0xFF2D3E50),
             ),
           ),
-
           const SizedBox(height: 15),
-
           Container(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -669,9 +617,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Column(
               children: [
-                // ==============================================
                 // DIGITAL VOUCHER
-                // ==============================================
                 Padding(
                   padding: const EdgeInsets.all(15),
                   child: Row(
@@ -680,9 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icons.confirmation_number,
                         color: Colors.white,
                       ),
-
                       const SizedBox(width: 10),
-
                       const Text(
                         'Voucher Digital',
                         style: TextStyle(
@@ -690,9 +634,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-
                       const Spacer(),
-
                       ElevatedButton(
                         onPressed: () {
                           Navigator.push(
@@ -715,9 +657,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // ==============================================
                 // MENU
-                // ==============================================
                 Container(
                   decoration: const BoxDecoration(
                     color: Colors.white,
@@ -725,9 +665,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Column(
                     children: [
-                      // =========================================
-                      // NEAREST RETURN POINT
-                      // =========================================
                       _buildMenuTile(
                         Icons.location_on_rounded,
                         'Cari titik pengembalian terdekat',
@@ -740,12 +677,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ).then((_) => _refreshData());
                         },
                       ),
-
                       _buildDivider(),
-
-                      // =========================================
-                      // MARKETPLACE
-                      // =========================================
                       _buildMenuTile(
                         Icons.shopping_cart,
                         'Tukar Saldo untuk Barang',
@@ -758,12 +690,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ).then((_) => _refreshData());
                         },
                       ),
-
                       _buildDivider(),
-
-                      // =========================================
-                      // CHARITY
-                      // =========================================
                       _buildMenuTile(
                         Icons.volunteer_activism_rounded,
                         'Bantuan & Donasi',
@@ -776,12 +703,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ).then((_) => _refreshData());
                         },
                       ),
-
                       _buildDivider(),
-
-                      // =========================================
-                      // OTHER
-                      // =========================================
                       _buildMenuTile(
                         Icons.business_center_rounded,
                         'EcoCash Partner',
@@ -790,7 +712,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                       _buildDivider(),
-
                       _buildMenuTile(
                         Icons.local_shipping_rounded,
                         'Jemput Sampah Terdekat',
@@ -803,9 +724,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ).then((_) => _refreshData());
                         },
                       ),
-
                       _buildDivider(),
-
                       _buildMenuTile(
                         Icons.person_rounded,
                         'Profil',
@@ -830,14 +749,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ============================================================
-  // MENU TILE
+  // MENU TILE & DIVIDER
   // ============================================================
 
   Widget _buildMenuTile(IconData icon, String title, {VoidCallback? onTap}) {
     return Material(
       color: Colors.transparent,
       child: ListTile(
-        leading: Icon(icon, size: 30, color: Color(0xFF64B5F6)),
+        leading: Icon(icon, size: 30, color: const Color(0xFF64B5F6)),
         title: Text(
           title,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -847,10 +766,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // DIVIDER
-  // ============================================================
 
   Widget _buildDivider() {
     return const Divider(

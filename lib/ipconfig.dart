@@ -6,7 +6,7 @@ class ApiConfig {
   // PRODUCTION
   // static const String baseUrl = 'https://api.ecocash.id/api/v1';
 
-  // LOCAL (Aktifkan ini untuk pengujian backend lokal)
+  // LOCAL (Aktif untuk pengujian lokal)
   static const String baseUrl = 'http://localhost:3000/api/v1';
 
   // ============================================================
@@ -36,6 +36,8 @@ class ApiConfig {
 
   static String get getUserProfile => '$baseUrl/users/me';
   static String get updateProfile => '$baseUrl/users/me';
+  static String get getMyProfile => getUserProfile;
+  static String get getMyQr => getMyDynamicQr;
   static String get getMyCarbon => '$baseUrl/users/me/carbon';
 
   // ============================================================
