@@ -1,82 +1,303 @@
-import 'dart:io' show Platform;
-
 class ApiConfig {
-  /// Override this with your machine's local IP address when running
-  /// on a physical Android device (e.g., "192.168.1.10").
-  /// Set to `null` to use automatic platform detection.
-  static String? customHost;
+  // ============================================================
+  // BASE URL
+  // ============================================================
 
-  /// The port your Docker API is running on.
-  static const int port = 3000;
+  // LOCAL
+  // static const String baseUrl = 'http://localhost:3000/api/v1';
 
-  /// Automatically resolves the correct host based on the platform:
-  /// - Android emulator → 10.0.2.2 (host loopback)
-  /// - Android physical → uses [customHost] if set, otherwise falls back to 10.0.2.2
-  /// - iOS simulator   → localhost (runs on host machine)
-  /// - Web / Desktop   → localhost
-  static String get _host {
-    // If a custom host is explicitly provided, use it (for physical Android devices)
-    if (customHost != null) return customHost!;
+  // PRODUCTION
+  static const String baseUrl = 'https://api.ecocash.id/api/v1';
 
-    try {
-      if (Platform.isAndroid) {
-        // 10.0.2.2 is the host machine loopback from Android emulator.
-        // For physical devices, set [customHost] to your machine's local IP.
-        return "10.0.2.2";
-      }
-    } catch (_) {
-      // Platform not available (e.g., web), fall through to localhost
-    }
+  // ============================================================
+  // AUTHENTICATION
+  // ============================================================
 
-    return "localhost";
+  static String get login {
+    return '$baseUrl/auth/login';
   }
 
-  static String get baseUrl => "http://$_host:$port/api/v1";
+  static String get register {
+    return '$baseUrl/auth';
+  }
+  // ============================================================
+  // EMAIL VERIFICATION
+  // ============================================================
 
-  static String get login => "$baseUrl/auth/login";
-  static String get register => "$baseUrl/auth";
+  /// Auth required.
+  /// Mengirim ulang email verifikasi.
+  static String get sendEmailVerification {
+    return '$baseUrl/auth/email-verification/send';
+  }
 
-  // --- Machine Sessions APIs ---
-  static String get startSession => "$baseUrl/machine-sessions/start";
-  static String get getMySessionHistory => "$baseUrl/machine-sessions/my";
+  /// Public.
+  /// Konfirmasi token dari link email.
+  static String get confirmEmailVerification {
+    return '$baseUrl/auth/email-verification/confirm';
+  }
 
-  static String get getProducts => "$baseUrl/products/marketplace";
+  // ============================================================
+  // PASSWORD RESET
+  // ============================================================
 
-  static String getSessionDetail(String id) => "$baseUrl/machine-sessions/$id";
-  static String completeSession(String id) => "$baseUrl/machine-sessions/$id/complete";
-  static String confirmSession(String id) => "$baseUrl/machine-sessions/$id/confirm";
+  /// Public.
+  /// Request link reset password.
+  static String get forgotPassword {
+    return '$baseUrl/auth/forgot-password';
+  }
 
-  static String getSessionStatus(String id) => "$baseUrl/users/access-tokens/$id";
+  /// Public.
+  /// Reset password menggunakan token email.
+  static String get resetPassword {
+    return '$baseUrl/auth/reset-password';
+  }
 
-  static String get createOrder => "$baseUrl/orders";
-  static String get getMyOrders => "$baseUrl/orders/my";
-  static String getOrderById(String id) => "$baseUrl/orders/$id";
+  // ============================================================
+  // USER
+  // ============================================================
+  
+  static String get getUserProfile {
+    return '$baseUrl/users/me';
+  }
 
-  // --- Cart Endpoints ---
-  static String get getCart => "$baseUrl/cart";
-  static String get clearCart => "$baseUrl/cart"; // DELETE
-  static String get addToCart => "$baseUrl/cart/items"; // POST
-  static String updateCartItem(int id) => "$baseUrl/cart/items/$id"; // PATCH
-  static String removeCartItem(int id) => "$baseUrl/cart/items/$id"; // DELETE
-  static String get checkoutCart => "$baseUrl/cart/checkout"; // POST
+  static String get updateProfile {
+    return '$baseUrl/users/me';
+  }
 
-  // --- Lainnya ---
-  static String get getMyProfile => "$baseUrl/users/me";
-  static String get getMyQr => "$baseUrl/users/me/qr";
-  static String get getMyWallet => "$baseUrl/wallets/me";
-  static String get getTransactions => "$baseUrl/wallets/me/transactions";
+  // Alias kompatibilitas
+  static String get getMyProfile => getUserProfile;
+  static String get getMyQr => getMyDynamicQr;
+  static String get getMyCarbon {
+    return '$baseUrl/users/me/carbon';
+  }
 
-  static String getNearestMachines(double latitude, double longitude) =>
-      "$baseUrl/machines/nearest?latitude=$latitude&longitude=$longitude";
+  // ============================================================
+  // USER QR
+  // ============================================================
 
-  // Variabel untuk menyimpan token setelah login
+  /// QR PERMANEN
+  ///
+  /// GET /users/me/credential-qr
+  static String get getMyCredentialQr {
+    return '$baseUrl/users/me/credential-qr';
+  }
+
+  /// Regenerate QR permanen.
+  ///
+  /// POST /users/me/credential-qr/regenerate
+  ///
+  /// QR lama akan direvoke.
+  static String get regenerateMyCredentialQr {
+    return '$baseUrl/users/me/credential-qr/regenerate';
+  }
+
+  /// QR dynamic lama.
+  ///
+  /// GET /users/me/qr
+  ///
+  /// Jangan digunakan oleh ScanPage permanen.
+  static String get getMyDynamicQr {
+    return '$baseUrl/users/me/qr';
+  }
+
+  // ============================================================
+  // MACHINE
+  // ============================================================
+
+  static String getNearestMachines(double latitude, double longitude) {
+    return '$baseUrl/machines/nearest'
+        '?latitude=$latitude'
+        '&longitude=$longitude';
+  }
+
+  static String getMachineById(int id) {
+    return '$baseUrl/machines/$id';
+  }
+
+  // ============================================================
+  // MACHINE SESSION
+  // ============================================================
+
+  static String get startSession {
+    return '$baseUrl/machine-sessions/start';
+  }
+
+  /// Session milik user.
+  ///
+  /// Digunakan ScanPage untuk mendeteksi
+  /// session baru setelah mesin membaca QR permanen.
+  static String get getMySessionHistory {
+    return '$baseUrl/machine-sessions/my';
+  }
+
+  static String getSessionDetail(String id) {
+    return '$baseUrl/machine-sessions/$id';
+  }
+
+  static String completeSession(String id) {
+    return '$baseUrl/machine-sessions/$id/complete';
+  }
+
+  static String confirmSession(String id) {
+    return '$baseUrl/machine-sessions/$id/confirm';
+  }
+  // ============================================================
+  // VOUCHERS
+  // ============================================================
+
+  /// GET /vouchers/available
+  /// Voucher yang tersedia untuk user.
+  static String get getAvailableVouchers {
+    return '$baseUrl/vouchers/available';
+  }
+
+  /// GET /vouchers/:id
+  static String getVoucherById(int id) {
+    return '$baseUrl/vouchers/$id';
+  }
+
+  // ============================================================
+  // LEGACY ACCESS TOKEN
+  // ============================================================
+
+  /// Hanya digunakan untuk dynamic QR lama.
+  static String getAccessTokenStatus(String id) {
+    return '$baseUrl/users/access-tokens/$id';
+  }
+
+  // ============================================================
+  // PRODUCTS
+  // ============================================================
+
+  static String get getProducts {
+    return '$baseUrl/products/marketplace';
+  }
+
+  // ============================================================
+  // ORDERS
+  // ============================================================
+
+  static String get createOrder {
+    return '$baseUrl/orders';
+  }
+
+  static String get getMyOrders {
+    return '$baseUrl/orders/my';
+  }
+
+  static String getOrderById(String id) {
+    return '$baseUrl/orders/$id';
+  }
+
+  // ============================================================
+  // CART
+  // ============================================================
+
+  static String get getCart => '$baseUrl/cart';
+
+  static String get clearCart => '$baseUrl/cart';
+
+  static String get addCartItem => '$baseUrl/cart/items';
+
+  static String updateCartItem(int id) => '$baseUrl/cart/items/$id';
+
+  static String removeCartItem(int id) => '$baseUrl/cart/items/$id';
+
+  static String get previewCart => '$baseUrl/cart/preview';
+
+  static String get checkoutCart => '$baseUrl/cart/checkout';
+  // ============================================================
+  // WALLET
+  // ============================================================
+
+  static String get getMyWallet {
+    return '$baseUrl/wallets/me';
+  }
+
+  static String get getTransactions {
+    return '$baseUrl/wallets/me/transactions';
+  }
+
+  // ============================================================
+  // WALLET TOP UP
+  // ============================================================
+
+  /// POST /wallets/topup
+  static String get createTopUp {
+    return '$baseUrl/wallets/topup';
+  }
+
+  /// GET /wallets/topup
+  static String get getMyTopUps {
+    return '$baseUrl/wallets/topup';
+  }
+
+  /// GET /wallets/topup/:id
+  static String getTopUpById(int id) {
+    return '$baseUrl/wallets/topup/$id';
+  }
+
+  /// POST /wallets/topup/:id/mock-pay
+  /// HANYA untuk local development
+  static String mockPayTopUp(int id) {
+    return '$baseUrl/wallets/topup/$id/mock-pay';
+  }
+
+  /// POST /wallets/topup/:id/check-status
+  static String checkTopUpStatus(int id) {
+    return '$baseUrl/wallets/topup/$id/check-status';
+  }
+  // ============================================================
+  // CHARITY & DONATION
+  // ============================================================
+
+  static String get getPublicCharities {
+    return '$baseUrl/charities/public';
+  }
+
+  static String get getMyDonations {
+    return '$baseUrl/donations/me';
+  }
+
+  static String getCharityById(int id) {
+    return '$baseUrl/charities/$id';
+  }
+
+  static String donateToCharity(int id) {
+    return '$baseUrl/charities/$id/donate';
+  }
+  // ============================================================
+  // AUTH TOKEN
+  // ============================================================
+
   static String? userToken;
+
+  /// Simpan JWT setelah login berhasil.
+  static void setToken(String token) {
+    userToken = token
+        .replaceFirst(RegExp(r'^Bearer\s+', caseSensitive: false), '')
+        .trim();
+  }
+
+  /// Hapus token ketika logout.
+  static void clearToken() {
+    userToken = null;
+  }
+
+  static bool get hasToken {
+    return userToken != null && userToken!.trim().isNotEmpty;
+  }
+
+  // ============================================================
+  // HEADERS
+  // ============================================================
 
   static Map<String, String> get headers {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      if (userToken != null) 'Authorization': 'Bearer $userToken',
+
+      if (hasToken) 'Authorization': 'Bearer ${userToken!.trim()}',
     };
   }
 }

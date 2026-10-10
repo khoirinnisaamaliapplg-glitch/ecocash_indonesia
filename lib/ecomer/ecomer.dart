@@ -49,13 +49,13 @@ class _EcomerPageState extends State<EcomerPage> {
         children: [
           // Gabungkan header dan card dalam stack agar layout konsisten
           SizedBox(
-            height: 290, // Header (240) + setengah tinggi card
+            height: 390,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 _buildHeaderSection(context),
                 Positioned(
-                  bottom: 0,
+                  top: 150,
                   left: 20,
                   right: 20,
                   child: _buildBalanceCard(context),
@@ -85,34 +85,43 @@ class _EcomerPageState extends State<EcomerPage> {
           fit: BoxFit.cover,
         ),
       ),
-      padding: const EdgeInsets.only(top: 60, left: 20),
-      child: GestureDetector(
-        onTap: () => Navigator.pop(context),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 22,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 30, left: 20, right: 20),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Back',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            const Text(
-              'Back',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
