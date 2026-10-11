@@ -418,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // CARBON + POINT
           // ====================================================
           Row(
-            mainAxisAlignment: dynamic_whitespace,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // =================================================
               // CARBON
