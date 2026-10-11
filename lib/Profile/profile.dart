@@ -4,6 +4,7 @@ import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/profile/editprofile.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'daftar_alamat_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -153,6 +154,19 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icons.notifications_none_rounded,
             title: 'Notifikasi',
             onTap: () {},
+          ),
+
+         _buildMenuTile(
+            icon: Icons.location_on_outlined,
+            title: 'Alamat Tersimpan',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DaftarAlamatPage(isSelecting: false), // <-- Hapus 'const'
+                ),
+              );
+            },
           ),
 
           const SizedBox(height: 24),
