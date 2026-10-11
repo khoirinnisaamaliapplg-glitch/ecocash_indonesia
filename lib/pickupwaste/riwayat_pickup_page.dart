@@ -38,8 +38,21 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> {
 
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
+        final List rawList = decoded['data'] is List ? decoded['data'] : [];
+
+        // Filter defensif: Pastikan hanya tugas penjemputan warga (bukan Smart Container)
+        final filteredList = rawList.where((item) {
+          final bool hasMachine = item['machineId'] != null || item['machine'] != null;
+          final String title = (item['title'] ?? '').toString().toLowerCase();
+
+          if (hasMachine || title.contains('smart container') || title.contains('pengosongan')) {
+            return false;
+          }
+          return true;
+        }).toList();
+
         setState(() {
-          _orders = decoded['data'] ?? [];
+          _orders = filteredList;
         });
       } else {
         setState(() => _orders = []);
@@ -150,6 +163,8 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> {
                       final cleanAddress = (order['description'] ?? order['address'] ?? '')
                           .toString()
                           .replaceAll(RegExp(r'\[PEMESAN_ID:\d+\]'), '')
+                          .replaceAll(RegExp(r'\[WEIGHT:[\d.]+\]'), '')
+                          .replaceAll(RegExp(r'\[VEHICLE:\w+\]'), '')
                           .trim();
 
                       final double weight = _parseWeight(order['estimatedWeight'] ?? order['totalWeight']);
@@ -174,9 +189,12 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  order['title'] ?? 'Penjemputan Sampah',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                Expanded(
+                                  child: Text(
+                                    order['title'] ?? 'Penjemputan Sampah',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
