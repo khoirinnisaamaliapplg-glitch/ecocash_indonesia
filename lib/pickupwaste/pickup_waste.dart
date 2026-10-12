@@ -51,7 +51,9 @@ class _PickupWastePageState extends State<PickupWastePage> {
   ];
 
   int _selectedFleetIndex = 0;
-  String selectedDestination = "container";
+  String selectedDestination = "container"; // 'container' atau 'enterprise'
+  int _selectedMachineIndex = 0; // Menyimpan indeks mesin database yang dipilih warga
+
   bool loading = false;
   bool isFetchingMachines = true;
   List<dynamic> activeMachines = [];
@@ -71,7 +73,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
     super.dispose();
   }
 
-  // Ambil alamat dari Database melalui REST API
+  // 1. Ambil alamat dari Database melalui REST API
   Future<void> _fetchAddressesFromDb() async {
     setState(() => _isLoadingAddress = true);
     try {
@@ -100,6 +102,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
     }
   }
 
+  // 2. Ambil seluruh data Smart Container aktif dari Database Backend
   Future<void> _loadInitialMachines() async {
     setState(() => isFetchingMachines = true);
     try {
@@ -108,17 +111,23 @@ class _PickupWastePageState extends State<PickupWastePage> {
       if (machineRes.statusCode == 200) {
         final machineData = jsonDecode(machineRes.body);
         if (machineData['data'] is List && (machineData['data'] as List).isNotEmpty) {
-          activeMachines = machineData['data'];
+          setState(() {
+            activeMachines = machineData['data'];
+            // Pastikan index seleksi selalu valid
+            if (_selectedMachineIndex >= activeMachines.length) {
+              _selectedMachineIndex = 0;
+            }
+          });
         }
       }
     } catch (e) {
-      debugPrint("Gagal memuat data mesin: $e");
+      debugPrint("Gagal memuat data mesin dari DB: $e");
     } finally {
       if (mounted) setState(() => isFetchingMachines = false);
     }
   }
 
-  // Evaluasi cerdas saat bobot digeser
+  // Evaluasi batas muatan armada saat slider digeser
   void _onWeightChanged(double newWeight) {
     setState(() {
       _estimatedWeight = newWeight.clamp(1.0, 600.0);
@@ -130,7 +139,6 @@ class _PickupWastePageState extends State<PickupWastePage> {
     final currentFleet = _fleetSpecs[_selectedFleetIndex];
     final double maxCap = currentFleet['maxCapacityKg'];
 
-    // Jika muatan meluap dari armada saat ini, pindah ke armada pertama yang muat
     if (_estimatedWeight > maxCap) {
       final suitableIndex = _fleetSpecs.indexWhere(
         (f) => _estimatedWeight <= (f['maxCapacityKg'] as double),
@@ -156,6 +164,123 @@ class _PickupWastePageState extends State<PickupWastePage> {
     }
   }
 
+  // Dialog Bottom Sheet untuk memilih seluruh Smart Container dari Database
+  void _openMachineSelector() {
+    if (activeMachines.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Pilih Smart Container Tujuan",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          "${activeMachines.length} Mesin Aktif",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: activeMachines.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, i) {
+                      final m = activeMachines[i];
+                      final bool isSelected = _selectedMachineIndex == i;
+                      final int fill = m['fillPercentage'] ?? 0;
+                      final String area = m['placeName'] ?? m['address'] ?? 'Kota Bandung';
+                      final String code = m['machineCode'] ?? 'MCH-$i';
+
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? primary.withOpacity(0.15) : const Color(0xFFF4F6F8),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            color: isSelected ? primary : Colors.grey,
+                            size: 24,
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Text(
+                              m['name'] ?? 'Smart Container',
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                code,
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          "$area • Terisi $fill%",
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        trailing: Icon(
+                          isSelected ? Icons.check_circle : Icons.circle_outlined,
+                          color: isSelected ? primary : Colors.grey.shade400,
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedMachineIndex = i;
+                            selectedDestination = "container";
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 3. Kirim pesanan penjemputan ke Backend
   Future<void> _orderPickup() async {
     if (!ApiConfig.hasToken) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,10 +316,11 @@ class _PickupWastePageState extends State<PickupWastePage> {
       int? targetMachineId;
 
       if (selectedDestination == "container") {
-        if (activeMachines.isNotEmpty) {
-          final String mName = activeMachines[0]['name'] ?? "Sudirman";
+        if (activeMachines.isNotEmpty && _selectedMachineIndex < activeMachines.length) {
+          final targetMachine = activeMachines[_selectedMachineIndex];
+          final String mName = targetMachine['name'] ?? targetMachine['placeName'] ?? "Smart Container";
           destinationTitle = "Smart Container ($mName)";
-          targetMachineId = activeMachines[0]['id'];
+          targetMachineId = targetMachine['id'];
         } else {
           destinationTitle = "Smart Container (Umum)";
         }
@@ -237,7 +363,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
               ],
             ),
             content: Text(
-              "Permintaan jemput sampah berhasil dibuat menggunakan armada ${selectedFleet['title']}. Mitra terdekat akan segera merespons.",
+              "Permintaan jemput sampah berhasil dibuat menggunakan armada ${selectedFleet['title']}. Tujuan penyetoran: $destinationTitle.",
             ),
             actions: [
               TextButton(
@@ -585,22 +711,58 @@ class _PickupWastePageState extends State<PickupWastePage> {
   }
 
   Widget _buildDestinationOptions() {
-    final String machineTitle = activeMachines.isNotEmpty
-        ? activeMachines[0]['name'] ?? "Smart Container"
+    if (isFetchingMachines) {
+      return const Padding(
+        padding: EdgeInsets.all(20.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final Map<String, dynamic>? currentMachine =
+        (activeMachines.isNotEmpty && _selectedMachineIndex < activeMachines.length)
+            ? activeMachines[_selectedMachineIndex]
+            : null;
+
+    final String machineTitle = currentMachine != null
+        ? (currentMachine['name'] ?? "Smart Container")
         : "Smart Container EcoCash";
 
-    final int fillPct = activeMachines.isNotEmpty ? (activeMachines[0]['fillPercentage'] ?? 0) : 0;
+    final int fillPct = currentMachine != null ? (currentMachine['fillPercentage'] ?? 0) : 0;
     final bool isFull = fillPct >= 80;
+    final String areaInfo = currentMachine != null ? (currentMachine['placeName'] ?? '') : '';
 
     return Column(
       children: [
-        _destinationCard("container", Icons.inventory_2_outlined, machineTitle, isFull ? "Kapasitas mesin hampir penuh ($fillPct%)" : "Tersedia ${100 - fillPct}%"),
-        _destinationCard("enterprise", Icons.business_outlined, "Mitra Daur Ulang (TPS/Pabrik)", "Siap menampung kapasitas besar tanpa batas"),
+        _destinationCard(
+          "container",
+          Icons.inventory_2_outlined,
+          machineTitle,
+          isFull
+              ? "Kapasitas mesin hampir penuh ($fillPct%) • $areaInfo"
+              : "Terisi $fillPct% • $areaInfo",
+          onActionTap: activeMachines.length > 1 ? _openMachineSelector : null,
+          actionLabel: activeMachines.length > 1
+              ? "Ganti Titik (${activeMachines.length} Mesin Tersedia)"
+              : null,
+        ),
+        _destinationCard(
+          "enterprise",
+          Icons.business_outlined,
+          "Mitra Daur Ulang (TPS/Pabrik)",
+          "Siap menampung kapasitas besar tanpa batas",
+        ),
       ],
     );
   }
 
-  Widget _destinationCard(String value, IconData icon, String title, String subtitle) {
+  Widget _destinationCard(
+    String value,
+    IconData icon,
+    String title,
+    String subtitle, {
+    VoidCallback? onActionTap,
+    String? actionLabel,
+  }) {
     bool active = selectedDestination == value;
     return GestureDetector(
       onTap: () => setState(() => selectedDestination = value),
@@ -613,20 +775,41 @@ class _PickupWastePageState extends State<PickupWastePage> {
           border: Border.all(color: active ? primary : Colors.transparent, width: 2),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
         ),
-        child: Row(
+        child: Column(
           children: [
-            Icon(icon, color: active ? primary : Colors.grey, size: 28),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                ],
-              ),
+            Row(
+              children: [
+                Icon(icon, color: active ? primary : Colors.grey, size: 28),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                Icon(active ? Icons.check_circle : Icons.circle_outlined, color: active ? primary : Colors.grey),
+              ],
             ),
-            Icon(active ? Icons.check_circle : Icons.circle_outlined, color: active ? primary : Colors.grey),
+            if (active && onActionTap != null && actionLabel != null) ...[
+              const Divider(height: 18),
+              InkWell(
+                onTap: onActionTap,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      actionLabel,
+                      style: TextStyle(color: primary, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right, size: 16, color: primary),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
