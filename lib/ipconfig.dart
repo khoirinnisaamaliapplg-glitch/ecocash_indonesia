@@ -4,10 +4,10 @@ class ApiConfig {
   // ============================================================
 
   // PRODUCTION
-  // static const String baseUrl = 'https://api.ecocash.id/api/v1';
+  static const String baseUrl = 'https://api.ecocash.id/api/v1';
 
   // LOCAL (Aktif untuk pengujian lokal)
-  static const String baseUrl = 'http://localhost:3000/api/v1';
+  // static const String baseUrl = 'http://localhost:3000/api/v1';
 
   // ============================================================
   // AUTHENTICATION
