@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:ecocash_indonesia/ecomer/cart.dart';
 import 'package:ecocash_indonesia/ecomer/OrdersPage.dart';
 import 'detail.dart';
@@ -15,6 +16,12 @@ class EcomerPage extends StatefulWidget {
 
 class _EcomerPageState extends State<EcomerPage> {
   late Future<List<dynamic>> _productsFuture;
+
+  final NumberFormat _currencyFormat = NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  );
 
   @override
   void initState() {
@@ -160,7 +167,7 @@ class _EcomerPageState extends State<EcomerPage> {
                 ),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => CartScreen()),
+                  MaterialPageRoute(builder: (context) => const CartScreen()),
                 ),
               ),
             ],
@@ -176,7 +183,6 @@ class _EcomerPageState extends State<EcomerPage> {
             style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
           const SizedBox(height: 16),
-          // Bungkus dengan Material agar klik selalu terdeteksi setelah balik dari page lain
           Material(
             color: Colors.transparent,
             child: SizedBox(
@@ -289,6 +295,8 @@ class _EcomerPageState extends State<EcomerPage> {
   }
 
   Widget _buildProductItem(BuildContext context, Map<String, dynamic> item) {
+    final num priceNum = num.tryParse(item['price'].toString()) ?? 0;
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -319,8 +327,11 @@ class _EcomerPageState extends State<EcomerPage> {
             overflow: TextOverflow.ellipsis,
           ),
           Text(
-            "Rp ${item['price'] ?? '0'}",
-            style: const TextStyle(fontWeight: FontWeight.w900),
+            _currencyFormat.format(priceNum),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF2E7D32),
+            ),
           ),
           const SizedBox(height: 8),
           SizedBox(

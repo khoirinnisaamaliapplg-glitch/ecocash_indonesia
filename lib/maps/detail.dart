@@ -12,186 +12,85 @@ class DetailMaps extends StatefulWidget {
 }
 
 class _DetailMapsState extends State<DetailMaps> {
-  // ============================================================
-  // DATA UTAMA MESIN
-  // ============================================================
-
-  String get _name {
-    return widget.machine['name']?.toString() ?? 'Tanpa Nama';
-  }
-
-  String get _machineCode {
-    return widget.machine['machineCode']?.toString() ?? '-';
-  }
-
-  String get _machineType {
-    return widget.machine['machineType']?.toString() ?? '-';
-  }
-
-  String get _status {
-    return widget.machine['status']?.toString().trim().toUpperCase() ??
-        'UNKNOWN';
-  }
-
-  String get _fillLevel {
-    return widget.machine['fillLevel']?.toString().trim().toUpperCase() ??
-        'EMPTY';
-  }
+  String get _name => widget.machine['name']?.toString() ?? 'Tanpa Nama';
+  String get _machineCode => widget.machine['machineCode']?.toString() ?? '-';
+  String get _machineType => widget.machine['machineType']?.toString() ?? 'CONTAINER';
+  String get _status => widget.machine['status']?.toString().trim().toUpperCase() ?? 'OPERATING';
+  String get _fillLevel => widget.machine['fillLevel']?.toString().trim().toUpperCase() ?? 'EMPTY';
 
   String get _placeName {
     final value = widget.machine['placeName']?.toString();
-
-    if (value == null || value.trim().isEmpty) {
-      return '-';
-    }
-
-    return value;
+    return (value == null || value.trim().isEmpty) ? '-' : value;
   }
 
   String get _district {
     final value = widget.machine['district']?.toString();
-
-    if (value == null || value.trim().isEmpty) {
-      return '-';
-    }
-
-    return value;
+    return (value == null || value.trim().isEmpty) ? '-' : value;
   }
 
   String get _subdistrict {
     final value = widget.machine['subdistrict']?.toString();
-
-    if (value == null || value.trim().isEmpty) {
-      return '-';
-    }
-
-    return value;
+    return (value == null || value.trim().isEmpty) ? '-' : value;
   }
 
   String get _locationType {
     final value = widget.machine['locationType']?.toString();
-
-    if (value == null || value.trim().isEmpty) {
-      return '-';
-    }
-
-    return value;
+    return (value == null || value.trim().isEmpty) ? '-' : value;
   }
 
   String get _address {
     final address = widget.machine['address']?.toString();
-
-    if (address != null && address.trim().isNotEmpty) {
-      return address;
-    }
-
+    if (address != null && address.trim().isNotEmpty) return address;
     final placeName = widget.machine['placeName']?.toString();
-
-    if (placeName != null && placeName.trim().isNotEmpty) {
-      return placeName;
-    }
-
+    if (placeName != null && placeName.trim().isNotEmpty) return placeName;
     return 'Alamat tidak tersedia';
   }
 
-  // ============================================================
-  // KOORDINAT
-  // ============================================================
+  double? get _latitude => double.tryParse(widget.machine['latitude']?.toString() ?? '');
+  double? get _longitude => double.tryParse(widget.machine['longitude']?.toString() ?? '');
+  bool get _coordinatesAvailable => _latitude != null && _longitude != null;
 
-  double? get _latitude {
-    return double.tryParse(widget.machine['latitude']?.toString() ?? '');
-  }
-
-  double? get _longitude {
-    return double.tryParse(widget.machine['longitude']?.toString() ?? '');
-  }
-
-  bool get _coordinatesAvailable {
-    return _latitude != null && _longitude != null;
-  }
-
-  // ============================================================
-  // NILAI NUMERIK
-  // ============================================================
-
-  double get _distanceInKm {
-    return _toDouble(widget.machine['distanceInKm']);
-  }
-
-  double get _currentWeight {
-    return _toDouble(widget.machine['currentWeight']);
-  }
-
-  double get _maxWeight {
-    return _toDouble(widget.machine['maxWeight']);
-  }
+  double get _distanceInKm => _toDouble(widget.machine['distanceInKm']);
+  double get _currentWeight => _toDouble(widget.machine['currentWeight']);
+  double get _maxWeight => _toDouble(widget.machine['maxWeight'] ?? 200);
 
   double _toDouble(dynamic value) {
-    if (value == null) {
-      return 0;
-    }
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
+    if (value == null) return 0;
+    if (value is num) return value.toDouble();
     return double.tryParse(value.toString()) ?? 0;
   }
 
-  // ============================================================
-  // STATUS MESIN
-  // ============================================================
-
-  bool get _isOperating {
-    return _status == 'OPERATING';
-  }
+  bool get _isOperating => _status == 'OPERATING';
+  bool get _isFull => _fillLevel == 'FULL';
 
   Color get _statusColor {
     switch (_status) {
       case 'OPERATING':
         return const Color(0xFF2E7D32);
-
       case 'MAINTENANCE':
         return const Color(0xFFF57C00);
-
       case 'BROKEN':
         return const Color(0xFFC62828);
-
       default:
         return const Color(0xFF757575);
     }
   }
 
-  double get _machineStatusProgress {
-    return _isOperating ? 1.0 : 0.0;
-  }
-
-  // ============================================================
-  // FILL LEVEL
-  // ============================================================
-
   double get _capacityProgress {
     switch (_fillLevel) {
       case 'EMPTY':
         return 0.0;
-
       case 'LOW':
         return 0.25;
-
+      case 'HALF':
       case 'MEDIUM':
         return 0.50;
-
       case 'HIGH':
         return 0.75;
-
       case 'FULL':
         return 1.0;
-
       default:
-        if (_maxWeight <= 0) {
-          return 0.0;
-        }
-
+        if (_maxWeight <= 0) return 0.0;
         return (_currentWeight / _maxWeight).clamp(0.0, 1.0);
     }
   }
@@ -200,19 +99,15 @@ class _DetailMapsState extends State<DetailMaps> {
     switch (_fillLevel) {
       case 'FULL':
         return const Color(0xFFC62828);
-
       case 'HIGH':
         return const Color(0xFFEF6C00);
-
+      case 'HALF':
       case 'MEDIUM':
         return const Color(0xFFF9A825);
-
       case 'LOW':
         return const Color(0xFF43A047);
-
       case 'EMPTY':
         return const Color(0xFF2E7D32);
-
       default:
         return const Color(0xFF757575);
     }
@@ -222,21 +117,10 @@ class _DetailMapsState extends State<DetailMaps> {
     switch (_fillLevel) {
       case 'FULL':
         return Icons.delete_rounded;
-
-      case 'HIGH':
-      case 'MEDIUM':
-        return Icons.delete_outline_rounded;
-
-      case 'LOW':
-      case 'EMPTY':
       default:
         return Icons.delete_outline_rounded;
     }
   }
-
-  // ============================================================
-  // GOOGLE MAPS
-  // ============================================================
 
   Future<void> _openGoogleMaps() async {
     final latitude = _latitude;
@@ -244,11 +128,9 @@ class _DetailMapsState extends State<DetailMaps> {
 
     if (latitude == null || longitude == null) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Koordinat mesin tidak tersedia')),
       );
-
       return;
     }
 
@@ -262,7 +144,6 @@ class _DetailMapsState extends State<DetailMaps> {
       final bool success = await launchUrl(
         googleMapsUri,
         mode: LaunchMode.externalApplication,
-        webOnlyWindowName: '_blank',
       );
 
       if (!success && mounted) {
@@ -272,16 +153,11 @@ class _DetailMapsState extends State<DetailMaps> {
       }
     } catch (_) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gagal membuka Google Maps')),
       );
     }
   }
-
-  // ============================================================
-  // HALAMAN
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -291,17 +167,34 @@ class _DetailMapsState extends State<DetailMaps> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
-
-          const SizedBox(height: 18),
-
+          const SizedBox(height: 16),
+          if (_isFull) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Kontainer ini sudah penuh. Petugas kurir sedang dijadwalkan untuk pengosongan muatan.',
+                      style: TextStyle(color: Colors.red.shade800, fontSize: 11, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           _buildLocationCard(),
-
           const SizedBox(height: 14),
-
           _buildNavigateButton(),
-
           const SizedBox(height: 24),
-
           const Text(
             'Informasi Mesin',
             style: TextStyle(
@@ -310,30 +203,22 @@ class _DetailMapsState extends State<DetailMaps> {
               fontWeight: FontWeight.w700,
             ),
           ),
-
           const SizedBox(height: 12),
-
           _buildMachineInformation(),
-
           const SizedBox(height: 24),
-
           _buildCapacitySection(),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // HEADER
-  // ============================================================
-
   Widget _buildHeader() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 54,
-          height: 54,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
             color: const Color(0xFFE8F5E9),
             borderRadius: BorderRadius.circular(16),
@@ -341,12 +226,10 @@ class _DetailMapsState extends State<DetailMaps> {
           child: const Icon(
             Icons.recycling_rounded,
             color: Color(0xFF4DB67D),
-            size: 31,
+            size: 30,
           ),
         ),
-
-        const SizedBox(width: 13),
-
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,18 +240,13 @@ class _DetailMapsState extends State<DetailMaps> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF1A2E35),
-                  fontSize: 21,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-
-              const SizedBox(height: 7),
-
+              const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _statusColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -382,7 +260,7 @@ class _DetailMapsState extends State<DetailMaps> {
                       _status,
                       style: TextStyle(
                         color: _statusColor,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -392,7 +270,6 @@ class _DetailMapsState extends State<DetailMaps> {
             ],
           ),
         ),
-
         IconButton(
           onPressed: widget.onBack,
           tooltip: 'Tutup detail',
@@ -401,10 +278,6 @@ class _DetailMapsState extends State<DetailMaps> {
       ],
     );
   }
-
-  // ============================================================
-  // INFORMASI LOKASI
-  // ============================================================
 
   Widget _buildLocationCard() {
     return Container(
@@ -421,9 +294,7 @@ class _DetailMapsState extends State<DetailMaps> {
             label: 'Alamat',
             value: _address,
           ),
-
-          const SizedBox(height: 14),
-
+          const SizedBox(height: 12),
           _infoRow(
             icon: Icons.route_outlined,
             label: 'Jarak dari lokasi Anda',
@@ -437,10 +308,10 @@ class _DetailMapsState extends State<DetailMaps> {
   Widget _buildNavigateButton() {
     return SizedBox(
       width: double.infinity,
-      height: 50,
+      height: 48,
       child: ElevatedButton.icon(
         onPressed: _coordinatesAvailable ? _openGoogleMaps : null,
-        icon: const Icon(Icons.navigation_rounded, size: 21),
+        icon: const Icon(Icons.navigation_rounded, size: 20),
         label: const Text(
           'Navigasi dengan Google Maps',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
@@ -449,7 +320,6 @@ class _DetailMapsState extends State<DetailMaps> {
           backgroundColor: const Color(0xFF4285F4),
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey.shade300,
-          disabledForegroundColor: Colors.grey.shade600,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -459,14 +329,9 @@ class _DetailMapsState extends State<DetailMaps> {
     );
   }
 
-  // ============================================================
-  // INFORMASI DETAIL MESIN
-  // ============================================================
-
   Widget _buildMachineInformation() {
     final String coordinates = _coordinatesAvailable
-        ? '${_latitude!.toStringAsFixed(6)}, '
-              '${_longitude!.toStringAsFixed(6)}'
+        ? '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}'
         : '-';
 
     return Container(
@@ -475,73 +340,47 @@ class _DetailMapsState extends State<DetailMaps> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFFE8ECEF)),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           _detailRow(label: 'Kode mesin', value: _machineCode),
-
-          const Divider(height: 24),
-
+          const Divider(height: 20),
           _detailRow(label: 'Tipe mesin', value: _machineType),
-
-          const Divider(height: 24),
-
+          const Divider(height: 20),
           _detailRow(label: 'Status mesin', value: _status),
-
-          const Divider(height: 24),
-
+          const Divider(height: 20),
           _detailRow(label: 'Tingkat keterisian', value: _fillLevel),
-
-          const Divider(height: 24),
-
-          _detailRow(label: 'Tipe lokasi', value: _locationType),
-
-          const Divider(height: 24),
-
-          _detailRow(label: 'Nama tempat', value: _placeName),
-
-          const Divider(height: 24),
-
-          _detailRow(label: 'Kecamatan', value: _district),
-
-          const Divider(height: 24),
-
-          _detailRow(label: 'Kelurahan', value: _subdistrict),
-
-          const Divider(height: 24),
-
-          _detailRow(label: 'Koordinat', value: coordinates),
+          const Divider(height: 20),
+          _detailRow(label: 'Wilayah / Area', value: '$_district, $_subdistrict'),
+          const Divider(height: 20),
+          _detailRow(label: 'Koordinat Spasial', value: coordinates),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // STATUS DAN KAPASITAS
-  // ============================================================
 
   Widget _buildCapacitySection() {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFF4DB67D),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
           const Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(14),
             child: Row(
               children: [
-                Icon(Icons.recycling_rounded, color: Colors.white),
-                SizedBox(width: 10),
+                Icon(Icons.inventory_2_outlined, color: Colors.white, size: 20),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Reverse Vending Machine',
+                    'Kapasitas Smart Container',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -549,13 +388,12 @@ class _DetailMapsState extends State<DetailMaps> {
               ],
             ),
           ),
-
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(14),
             decoration: const BoxDecoration(
               color: Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
             ),
             child: Column(
               children: [
@@ -567,16 +405,14 @@ class _DetailMapsState extends State<DetailMaps> {
                         title: 'Status Mesin',
                         value: _status,
                         color: _statusColor,
-                        progress: _machineStatusProgress,
+                        progress: _isOperating ? 1.0 : 0.0,
                       ),
                     ),
-
-                    const SizedBox(width: 12),
-
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _buildMachineCard(
                         icon: _capacityIcon,
-                        title: 'Kapasitas Mesin',
+                        title: 'Kapasitas',
                         value: _fillLevel,
                         color: _capacityColor,
                         progress: _capacityProgress,
@@ -584,35 +420,27 @@ class _DetailMapsState extends State<DetailMaps> {
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 14),
-
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         child: _weightInformation(
                           label: 'Berat Saat Ini',
-                          value: '${_currentWeight.toStringAsFixed(2)} kg',
+                          value: '${_currentWeight.toStringAsFixed(1)} kg',
                         ),
                       ),
-
-                      Container(
-                        width: 1,
-                        height: 38,
-                        color: const Color(0xFFECEFF1),
-                      ),
-
+                      Container(width: 1, height: 32, color: const Color(0xFFECEFF1)),
                       Expanded(
                         child: _weightInformation(
-                          label: 'Kapasitas Maksimum',
-                          value: '${_maxWeight.toStringAsFixed(2)} kg',
+                          label: 'Kapasitas Maksimal',
+                          value: '${_maxWeight.toStringAsFixed(1)} kg',
                         ),
                       ),
                     ],
@@ -634,15 +462,15 @@ class _DetailMapsState extends State<DetailMaps> {
     required double progress,
   }) {
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 7,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -651,10 +479,8 @@ class _DetailMapsState extends State<DetailMaps> {
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF26A69A), size: 19),
-
+              Icon(icon, color: const Color(0xFF26A69A), size: 18),
               const SizedBox(width: 6),
-
               Expanded(
                 child: Text(
                   title,
@@ -667,9 +493,7 @@ class _DetailMapsState extends State<DetailMaps> {
               ),
             ],
           ),
-
-          const SizedBox(height: 10),
-
+          const SizedBox(height: 8),
           Text(
             value,
             maxLines: 1,
@@ -680,15 +504,13 @@ class _DetailMapsState extends State<DetailMaps> {
               fontWeight: FontWeight.w700,
             ),
           ),
-
-          const SizedBox(height: 10),
-
+          const SizedBox(height: 8),
           LinearProgressIndicator(
             value: progress.clamp(0.0, 1.0),
-            minHeight: 6,
+            minHeight: 5,
             backgroundColor: const Color(0xFFECEFF1),
             color: color,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
         ],
       ),
@@ -703,9 +525,7 @@ class _DetailMapsState extends State<DetailMaps> {
           textAlign: TextAlign.center,
           style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 11),
         ),
-
-        const SizedBox(height: 5),
-
+        const SizedBox(height: 4),
         Text(
           value,
           textAlign: TextAlign.center,
@@ -719,10 +539,6 @@ class _DetailMapsState extends State<DetailMaps> {
     );
   }
 
-  // ============================================================
-  // WIDGET PEMBANTU
-  // ============================================================
-
   Widget _infoRow({
     required IconData icon,
     required String label,
@@ -731,10 +547,8 @@ class _DetailMapsState extends State<DetailMaps> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF26A69A), size: 22),
-
-        const SizedBox(width: 12),
-
+        Icon(icon, color: const Color(0xFF26A69A), size: 20),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,14 +557,12 @@ class _DetailMapsState extends State<DetailMaps> {
                 label,
                 style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 11),
               ),
-
-              const SizedBox(height: 3),
-
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: const TextStyle(
                   color: Color(0xFF455A64),
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -772,9 +584,7 @@ class _DetailMapsState extends State<DetailMaps> {
             style: const TextStyle(color: Color(0xFF757575), fontSize: 12),
           ),
         ),
-
-        const SizedBox(width: 12),
-
+        const SizedBox(width: 10),
         Expanded(
           flex: 6,
           child: Text(
