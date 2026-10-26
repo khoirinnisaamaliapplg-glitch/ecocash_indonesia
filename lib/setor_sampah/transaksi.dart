@@ -1,21 +1,30 @@
+import 'package:flutter/material.dart';
 import 'package:ecocash_indonesia/home.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
-import 'package:flutter/material.dart';
 
 class TransaksiBerhasilScreen extends StatelessWidget {
-  // 1. Variabel untuk menampung data dari backend
   final Map<String, dynamic>? detailTransaksi;
 
-  // 2. Constructor tidak boleh 'const' karena membawa data dinamis
   const TransaksiBerhasilScreen({super.key, this.detailTransaksi});
+
+  String _formatNumber(dynamic val) {
+    if (val == null) return '0';
+    final n = double.tryParse(val.toString()) ?? 0;
+    return n.toInt().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 3. Ekstraksi data dari response backend
     final data = detailTransaksi?['data'] ?? {};
-    final List items = data['wasteTransactions'] ?? [];
-    final String totalAmount = data['totalAmount']?.toString() ?? '0';
+    final List items = data['items'] is List ? data['items'] : [];
+    final String earned = data['earned']?.toString() ?? '0';
+    final String balance = data['balance']?.toString() ?? '0';
     final String sessionId = data['sessionId']?.toString() ?? '-';
+    final String totalWeight = data['totalWeight']?.toString() ?? '0.00';
+    final String machineName = data['machineName']?.toString() ?? 'Smart Container';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -31,13 +40,11 @@ class TransaksiBerhasilScreen extends StatelessWidget {
                   top: 130,
                   left: 20,
                   right: 20,
-                  child: _buildSuccessCard(items, totalAmount, sessionId),
+                  child: _buildSuccessCard(items, earned, balance, sessionId, totalWeight, machineName),
                 ),
               ],
             ),
-            // Spacer agar konten card tidak tertutup bottom navbar
-            const SizedBox(height: 600),
-            const SizedBox(height: 20),
+            const SizedBox(height: 520),
           ],
         ),
       ),
@@ -45,7 +52,6 @@ class TransaksiBerhasilScreen extends StatelessWidget {
     );
   }
 
-  // --- 1. HEADER HIJAU ---
   Widget _buildHeader(BuildContext context) {
     return Container(
       height: 250,
@@ -59,29 +65,27 @@ class TransaksiBerhasilScreen extends StatelessWidget {
       ),
       padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
       child: const Text(
-        'Setor Sampah',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-        ),
+        'Bukti Setor Sampah',
+        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  // --- 2. CARD TRANSAKSI BERHASIL ---
-  Widget _buildSuccessCard(List items, String total, String idSesi) {
+  Widget _buildSuccessCard(
+    List items,
+    String earned,
+    String balance,
+    String idSesi,
+    String totalWeight,
+    String machineName,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
@@ -89,247 +93,145 @@ class TransaksiBerhasilScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              Text(
-                'Transaksi Berhasil',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+              Text('Transaksi Berhasil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               SizedBox(width: 8),
               Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 24),
             ],
           ),
-          const SizedBox(height: 10),
-          const Text(
-            'Kamu dapat bukti berisi jenis sampah dan\npoinnya. Jadi, semua tercatat rapi!',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
-          ),
-          const SizedBox(height: 25),
-
-          _buildTransactionDetails(items, total, idSesi),
-
-          const SizedBox(height: 25),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildTextButton(Icons.share_outlined, 'Share'),
-              _buildTextButton(Icons.file_download_outlined, 'Download'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- 3. DETAIL TRANSAKSI DINAMIS ---
-  Widget _buildTransactionDetails(List items, String total, String idSesi) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Ringkasan Setoran',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-              _buildStatusBadge(),
-            ],
-          ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'ID Sesi: #$idSesi',
-                style: const TextStyle(color: Colors.grey, fontSize: 10),
-              ),
-              const Text(
-                'Status: Berhasil',
-                style: TextStyle(color: Colors.grey, fontSize: 10),
-              ),
-            ],
+          Text(
+            'Saldo hasil setoran telah masuk ke dompet Anda.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
-          const Divider(height: 30),
+          const SizedBox(height: 20),
 
-          // Me-loop data sampah dari list yang dikirim backend
-          if (items.isEmpty)
-            const Text("Detail sampah tidak ditemukan")
-          else
-            Column(
-              children: items.map((item) {
-                return _buildItemRow(
-                  item['wasteType']?['name'] ?? 'Sampah',
-                  '${item['weight']} Kg',
-                  'Rp ${item['amount']}',
-                  const Color(0xFFE8F5E9),
-                );
-              }).toList(),
+          // Banner Komisi Masuk
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(16),
             ),
-
-          const Divider(height: 30),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Total Pendapatan',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Rp $total',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF388E3C),
+            child: Column(
+              children: [
+                const Text('Saldo Diterima', style: TextStyle(fontSize: 12, color: Color(0xFF2E7D32))),
+                const SizedBox(height: 4),
+                Text(
+                  '+Rp ${_formatNumber(earned)}',
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1B5E20)),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  'Saldo Dompet Saat Ini: Rp ${_formatNumber(balance)}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF388E3C)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Detail Rincian Sampah
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFEEEEEE)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Lokasi: $machineName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text('ID Sesi: #$idSesi', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  ],
+                ),
+                const Divider(height: 20),
+
+                if (items.isEmpty)
+                  const Text("Detail sampah tidak ditemukan", style: TextStyle(fontSize: 12, color: Colors.grey))
+                else
+                  Column(
+                    children: items.map((item) {
+                      final name = item['wasteType'] ?? 'Material';
+                      final weight = item['weight'] ?? '0';
+                      final price = item['totalPrice'] ?? '0';
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.recycling, size: 18, color: Colors.green),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('$name ($weight kg)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                            ),
+                            Text('Rp ${_formatNumber(price)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total Muatan Bersih', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text('$totalWeight Kg', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // --- 4. TOMBOL NAVIGASI ---
   Widget _buildBottomActions(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 25),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          OutlinedButton(
-            onPressed: () =>
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomeScreen()),
-                  (route) => false,
-                ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF4CAF50)),
-              minimumSize: const Size(double.infinity, 55),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
-            child: const Text(
-              'Kembali ke Beranda',
-              style: TextStyle(
-                color: Color(0xFF4CAF50),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           ElevatedButton(
             onPressed: () {
-              // Reset stack dan balik ke ScanPage
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF388E3C),
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            child: const Text('Kembali ke Beranda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const ScanPage()),
                 (route) => route.isFirst,
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF388E3C),
-              minimumSize: const Size(double.infinity, 55),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              elevation: 0,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF4CAF50)),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            child: const Text(
-              'Scan Sampah Lagi',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+            child: const Text('Setor Sampah Lagi', style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.bold, fontSize: 14)),
           ),
         ],
       ),
-    );
-  }
-
-  // --- WIDGET HELPER ---
-  Widget _buildStatusBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Text(
-        'Terkonfirmasi',
-        style: TextStyle(
-          color: Color(0xFF4CAF50),
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildItemRow(String name, String qty, String price, Color bg) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.recycling, size: 20, color: Colors.green),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                qty,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            price,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextButton(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey, size: 20),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.grey,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }
