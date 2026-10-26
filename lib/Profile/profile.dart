@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/profile/editprofile.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +13,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  late Future<Map<String, dynamic>> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = fetchUserProfile();
+  }
+
   Future<Map<String, dynamic>> fetchUserProfile() async {
     final response = await http.get(
       Uri.parse(ApiConfig.getUserProfile),
@@ -28,33 +35,85 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  void _refreshProfile() {
+    setState(() {
+      _profileFuture = fetchUserProfile();
+    });
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Konfirmasi Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Apakah Anda yakin ingin keluar dari akun EcoCash?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ApiConfig.userToken = null;
+              Navigator.pop(context);
+            },
+            child: const Text('Keluar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       body: FutureBuilder<Map<String, dynamic>>(
-        future: fetchUserProfile(),
+        future: _profileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 50, color: Colors.red),
+                  const SizedBox(height: 12),
+                  Text('Error: ${snapshot.error}', textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton(onPressed: _refreshProfile, child: const Text('Coba Lagi')),
+                ],
+              ),
+            );
+          }
+
           final user = snapshot.data ?? {};
 
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                _buildHeader(context),
-
-                Transform.translate(
-                  offset: const Offset(0, -70),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildProfileCard(context, user),
+          return RefreshIndicator(
+            onRefresh: () async => _refreshProfile(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  Transform.translate(
+                    offset: const Offset(0, -70),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildProfileCard(context, user),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -83,20 +142,12 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white,
-                    size: 21,
-                  ),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 21),
                 ),
                 const SizedBox(width: 2),
                 const Text(
                   'Profil Saya',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -114,63 +165,57 @@ class _ProfilePageState extends State<ProfilePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
         children: [
           _buildProfileIdentity(user),
-
           const SizedBox(height: 28),
-
           const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-
           const SizedBox(height: 16),
-
           _buildMenuTile(
             icon: Icons.person_outline_rounded,
             title: 'Edit Profil',
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              final updated = await Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => EditProfilePage(user: user),
-                ),
+                MaterialPageRoute(builder: (context) => EditProfilePage(user: user)),
               );
+              if (updated == true) {
+                _refreshProfile();
+              }
             },
           ),
-
           _buildMenuTile(
             icon: Icons.lock_outline_rounded,
             title: 'Keamanan',
-            onTap: () {},
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Fitur keamanan & ubah PIN segera hadir.')),
+              );
+            },
           ),
-
           _buildMenuTile(
             icon: Icons.notifications_none_rounded,
             title: 'Notifikasi',
-            onTap: () {},
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Notifikasi dalam aplikasi aktif.')),
+              );
+            },
           ),
-
-         _buildMenuTile(
+          _buildMenuTile(
             icon: Icons.location_on_outlined,
             title: 'Alamat Tersimpan',
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => DaftarAlamatPage(isSelecting: false), // <-- Hapus 'const'
-                ),
+                MaterialPageRoute(builder: (context) => const DaftarAlamatPage(isSelecting: false)),
               );
             },
           ),
-
           const SizedBox(height: 24),
-
           _buildLogoutButton(context),
         ],
       ),
@@ -187,56 +232,32 @@ class _ProfilePageState extends State<ProfilePage> {
             color: Colors.white,
             border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4)),
             ],
           ),
           child: const CircleAvatar(
             radius: 46,
             backgroundColor: Color(0xFFF1F3F5),
-            child: Icon(
-              Icons.person_rounded,
-              size: 54,
-              color: Color(0xFF9E9E9E),
-            ),
+            child: Icon(Icons.person_rounded, size: 54, color: Color(0xFF9E9E9E)),
           ),
         ),
-
         const SizedBox(height: 16),
-
         Text(
           user['name'] ?? 'Nama Pengguna',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF212121),
-            fontSize: 21,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(color: Color(0xFF212121), fontSize: 21, fontWeight: FontWeight.w700),
         ),
-
         const SizedBox(height: 6),
-
         Text(
           user['email'] ?? 'email@example.com',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF757575),
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-          ),
+          style: const TextStyle(color: Color(0xFF757575), fontSize: 14, fontWeight: FontWeight.w400),
         ),
       ],
     );
   }
 
-  Widget _buildMenuTile({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildMenuTile({required IconData icon, required String title, required VoidCallback onTap}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -258,25 +279,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   child: Icon(icon, color: const Color(0xFF3478F6), size: 22),
                 ),
-
                 const SizedBox(width: 14),
-
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
-                      color: Color(0xFF303030),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(color: Color(0xFF303030), fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
-
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Color(0xFF9E9E9E),
-                  size: 24,
-                ),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF9E9E9E), size: 24),
               ],
             ),
           ),
@@ -290,24 +300,13 @@ class _ProfilePageState extends State<ProfilePage> {
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: () {
-          setState(() {
-            ApiConfig.userToken = null;
-          });
-
-          Navigator.pop(context);
-        },
+        onPressed: () => _confirmLogout(context),
         icon: const Icon(Icons.logout_rounded, size: 20),
-        label: const Text(
-          'Keluar',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
+        label: const Text('Keluar', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFFE53935),
           side: const BorderSide(color: Color(0xFFE53935), width: 1.2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
     );

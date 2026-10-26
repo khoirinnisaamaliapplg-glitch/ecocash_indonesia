@@ -99,13 +99,57 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
     }
   }
 
+  // Preset koordinat kota dan area operasional EcoCash
+  final Map<String, Map<String, dynamic>> _areaPresets = {
+    'Bandung (Sukajadi/Pasteur)': {
+      'province': 'JAWA BARAT',
+      'city': 'KOTA BANDUNG',
+      'district': 'SUKAJADI',
+      'subdistrict': 'PASTEUR',
+      'postalCode': '40161',
+      'lat': -6.8942,
+      'lng': 107.6033,
+    },
+    'Bandung (Pusat/Asia Afrika)': {
+      'province': 'JAWA BARAT',
+      'city': 'KOTA BANDUNG',
+      'district': 'SUMUR BANDUNG',
+      'subdistrict': 'BRAGA',
+      'postalCode': '40111',
+      'lat': -6.9175,
+      'lng': 107.6191,
+    },
+    'Jakarta (Sudirman/Setiabudi)': {
+      'province': 'DKI JAKARTA',
+      'city': 'JAKARTA SELATAN',
+      'district': 'SETIABUDI',
+      'subdistrict': 'KARET KUNINGAN',
+      'postalCode': '12940',
+      'lat': -6.2088,
+      'lng': 106.8227,
+    },
+    'Jakarta (Gambir/Monas)': {
+      'province': 'DKI JAKARTA',
+      'city': 'JAKARTA PUSAT',
+      'district': 'GAMBIR',
+      'subdistrict': 'PETOJO UTARA',
+      'postalCode': '10130',
+      'lat': -6.1661,
+      'lng': 106.8194,
+    },
+  };
+
   void _showAddAddressDialog() {
     final labelCtrl = TextEditingController(text: 'Rumah');
     final recipientCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final detailCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
-    final postalCodeCtrl = TextEditingController(text: '10110');
+    final postalCodeCtrl = TextEditingController(text: '40161');
+
+    String selectedAreaKey = 'Bandung (Sukajadi/Pasteur)';
+    double currentLat = -6.8942;
+    double currentLng = 107.6033;
     bool isDefault = false;
 
     showModalBottomSheet(
@@ -116,163 +160,275 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            top: 20,
-            left: 20,
-            right: 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Tambah Alamat Baru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: labelCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Label Alamat (Rumah, Kantor, Toko)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: recipientCtrl,
-                        decoration: InputDecoration(
-                          labelText: 'Nama Penerima',
-                          hintText: 'Nama lengkap',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: phoneCtrl,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: 'Nomor HP',
-                          hintText: '0812xxxxxxxx',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: detailCtrl,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: 'Alamat Lengkap (Jalan, No, RT/RW, Wilayah)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 6,
-                      child: TextField(
-                        controller: notesCtrl,
-                        decoration: InputDecoration(
-                          labelText: 'Patokan (Pagar/Warna Rumah)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 4,
-                      child: TextField(
-                        controller: postalCodeCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Kode Pos',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Jadikan Alamat Utama', style: TextStyle(fontSize: 13)),
-                  value: isDefault,
-                  activeColor: primary,
-                  onChanged: (val) => setModalState(() => isDefault = val ?? false),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () async {
-                      if (detailCtrl.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Alamat lengkap tidak boleh kosong")),
-                        );
-                        return;
-                      }
+        builder: (context, setModalState) {
+          // Deteksi koordinat otomatis dari teks detail alamat
+          void autoDetectCoordinates(String text) {
+            final lower = text.toLowerCase();
+            String? matchedKey;
 
-                      Navigator.pop(ctx);
+            if (lower.contains('cipaganti') || lower.contains('pasteur') || lower.contains('sukajadi')) {
+              matchedKey = 'Bandung (Sukajadi/Pasteur)';
+            } else if (lower.contains('bandung') || lower.contains('dago') || lower.contains('asia afrika') || lower.contains('braga')) {
+              matchedKey = 'Bandung (Pusat/Asia Afrika)';
+            } else if (lower.contains('sudirman') || lower.contains('kuningan') || lower.contains('setiabudi')) {
+              matchedKey = 'Jakarta (Sudirman/Setiabudi)';
+            } else if (lower.contains('jakarta') || lower.contains('gambir') || lower.contains('monas') || lower.contains('petojo')) {
+              matchedKey = 'Jakarta (Gambir/Monas)';
+            }
 
-                      final String fullDetail = notesCtrl.text.trim().isNotEmpty
-                          ? '${detailCtrl.text.trim()} (Patokan: ${notesCtrl.text.trim()})'
-                          : detailCtrl.text.trim();
+            if (matchedKey != null && matchedKey != selectedAreaKey) {
+              final preset = _areaPresets[matchedKey]!;
+              setModalState(() {
+                selectedAreaKey = matchedKey!;
+                currentLat = preset['lat'];
+                currentLng = preset['lng'];
+                postalCodeCtrl.text = preset['postalCode'];
+              });
+            }
+          }
 
-                      final payload = {
-                        'label': labelCtrl.text.trim().isNotEmpty ? labelCtrl.text.trim() : 'Rumah',
-                        'recipientName': recipientCtrl.text.trim().isNotEmpty ? recipientCtrl.text.trim() : 'Warga EcoCash',
-                        'phoneNumber': phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : '081234567890',
-                        'detail': fullDetail,
-                        'postalCode': postalCodeCtrl.text.trim().isNotEmpty ? postalCodeCtrl.text.trim() : '10110',
-                        'province': 'DKI JAKARTA',
-                        'city': 'JAKARTA PUSAT',
-                        'district': 'GAMBIR',
-                        'subdistrict': 'GAMBIR',
-                        'isDefault': isDefault,
-                      };
-
-                      try {
-                        final response = await http.post(
-                          Uri.parse(ApiConfig.getUserAddresses),
-                          headers: ApiConfig.headers,
-                          body: jsonEncode(payload),
-                        );
-
-                        if (response.statusCode == 200 || response.statusCode == 201) {
-                          _fetchAddresses();
-                        } else {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Gagal menyimpan: ${response.statusCode} - ${response.body}'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        debugPrint("Error menyimpan alamat: $e");
-                      }
-                    },
-                    child: const Text('Simpan Alamat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              top: 20,
+              left: 20,
+              right: 20,
             ),
-          ),
-        ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tambah Alamat Baru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Koordinat spasial GPS akan disimpan otomatis ke PostGIS.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Pilihan Area / Kota Operasional
+                  const Text('Wilayah Operasional:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F6F8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedAreaKey,
+                        items: _areaPresets.keys.map((k) {
+                          return DropdownMenuItem<String>(
+                            value: k,
+                            child: Text(k, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final preset = _areaPresets[val]!;
+                            setModalState(() {
+                              selectedAreaKey = val;
+                              currentLat = preset['lat'];
+                              currentLng = preset['lng'];
+                              postalCodeCtrl.text = preset['postalCode'];
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Badge Preview Koordinat Spasial
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.my_location, size: 16, color: primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "Koordinat Aktif: $currentLat, $currentLng",
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: primary, borderRadius: BorderRadius.circular(4)),
+                          child: const Text("PostGIS Ready", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: labelCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Label Alamat (Rumah, Kantor, Toko)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: recipientCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Nama Penerima',
+                            hintText: 'Nama lengkap',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: 'Nomor HP',
+                            hintText: '0812xxxxxxxx',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: detailCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Alamat Lengkap (Jalan, No, RT/RW, Wilayah)',
+                      hintText: 'Ketik nama jalan/wilayah, koordinat otomatis menyesuaikan...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onChanged: autoDetectCoordinates,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: TextField(
+                          controller: notesCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Patokan (Pagar/Warna Rumah)',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 4,
+                        child: TextField(
+                          controller: postalCodeCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Kode Pos',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Jadikan Alamat Utama', style: TextStyle(fontSize: 13)),
+                    value: isDefault,
+                    activeColor: primary,
+                    onChanged: (val) => setModalState(() => isDefault = val ?? false),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () async {
+                        if (detailCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Alamat lengkap tidak boleh kosong")),
+                          );
+                          return;
+                        }
+
+                        Navigator.pop(ctx);
+
+                        final String fullDetail = notesCtrl.text.trim().isNotEmpty
+                            ? '${detailCtrl.text.trim()} (Patokan: ${notesCtrl.text.trim()})'
+                            : detailCtrl.text.trim();
+
+                        final activePreset = _areaPresets[selectedAreaKey]!;
+
+                        // Payload lengkap dengan latitude dan longitude murni bertipe numerik
+                        final payload = {
+                          'label': labelCtrl.text.trim().isNotEmpty ? labelCtrl.text.trim() : 'Rumah',
+                          'recipientName': recipientCtrl.text.trim().isNotEmpty ? recipientCtrl.text.trim() : 'Warga EcoCash',
+                          'phoneNumber': phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : '081234567890',
+                          'detail': fullDetail,
+                          'postalCode': postalCodeCtrl.text.trim().isNotEmpty ? postalCodeCtrl.text.trim() : activePreset['postalCode'],
+                          'province': activePreset['province'],
+                          'city': activePreset['city'],
+                          'district': activePreset['district'],
+                          'subdistrict': activePreset['subdistrict'],
+                          'latitude': currentLat,
+                          'longitude': currentLng,
+                          'isDefault': isDefault,
+                        };
+
+                        try {
+                          final response = await http.post(
+                            Uri.parse(ApiConfig.getUserAddresses),
+                            headers: ApiConfig.headers,
+                            body: jsonEncode(payload),
+                          );
+
+                          if (response.statusCode == 200 || response.statusCode == 201) {
+                            _fetchAddresses();
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Alamat dengan koordinat spasial berhasil disimpan!"),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal menyimpan: ${response.statusCode} - ${response.body}'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint("Error menyimpan alamat: $e");
+                        }
+                      },
+                      child: const Text('Simpan Alamat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

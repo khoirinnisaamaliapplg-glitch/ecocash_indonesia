@@ -110,6 +110,7 @@ class ApiConfig {
 
   static String get getMyWallet => '$baseUrl/wallets/me';
   static String get getTransactions => '$baseUrl/wallets/me/transactions';
+  static String get getMyWalletTransactions => "$baseUrl/wallets/me/transactions";
   static String get createTopUp => '$baseUrl/wallets/topup';
   static String get getMyTopUps => '$baseUrl/wallets/topup';
   static String getTopUpById(int id) => '$baseUrl/wallets/topup/$id';
@@ -163,4 +164,18 @@ class ApiConfig {
   // ============================================================
 
   static String get getMyPickupOrders => '$baseUrl/jobs/my-pickup-orders';
+
+  // ============================================================
+  // WASTE TYPES & MASTER DATA
+  // ============================================================
+
+  static String get getWasteTypes => '$baseUrl/waste-types';
+  static String get getMachineWasteTypes => '$baseUrl/waste-types/machine?limit=100';
+
+  // ============================================================
+  // LIVE CHAT DRIVER PARTNER (JOB MESSAGES)
+  // ============================================================
+
+  static String getJobChat(dynamic jobId) => '$baseUrl/jobs/$jobId/messages';
+  static String sendJobChat(dynamic jobId) => '$baseUrl/jobs/$jobId/messages';
 }
