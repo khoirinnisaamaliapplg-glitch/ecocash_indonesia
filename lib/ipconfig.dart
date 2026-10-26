@@ -4,10 +4,12 @@ class ApiConfig {
   // ============================================================
 
   // PRODUCTION
-  static const String baseUrl = 'https://api.ecocash.id/api/v1';
+  // static const String baseUrl = 'https://api.ecocash.id/api/v1';
+  // static const String socketUrl = 'https://api.ecocash.id/sessions';
 
   // LOCAL (Aktif untuk pengujian lokal)
-  // static const String baseUrl = 'http://localhost:3000/api/v1';
+  static const String baseUrl = 'http://localhost:3000/api/v1';
+  static const String socketUrl = 'http://localhost:3000/sessions';
 
   // ============================================================
   // AUTHENTICATION
@@ -41,7 +43,7 @@ class ApiConfig {
   static String get getMyCarbon => '$baseUrl/users/me/carbon';
 
   // ============================================================
-  // USER QR
+  // USER QR CREDENTIAL
   // ============================================================
 
   static String get getMyCredentialQr => '$baseUrl/users/me/credential-qr';
@@ -49,7 +51,7 @@ class ApiConfig {
   static String get getMyDynamicQr => '$baseUrl/users/me/qr';
 
   // ============================================================
-  // MACHINE & SESSION
+  // MACHINE & SESSION (V2 SPECIFICATION)
   // ============================================================
 
   static String getNearestMachines(double latitude, double longitude) {
@@ -58,6 +60,7 @@ class ApiConfig {
 
   static String getMachineById(int id) => '$baseUrl/machines/$id';
   static String get startSession => '$baseUrl/machine-sessions/start';
+  static String get getCurrentSession => '$baseUrl/machine-sessions/current'; // Penambahan V2
   static String get getMySessionHistory => '$baseUrl/machine-sessions/my';
   static String getSessionDetail(String id) => '$baseUrl/machine-sessions/$id';
   static String completeSession(String id) => '$baseUrl/machine-sessions/$id/complete';
@@ -147,7 +150,7 @@ class ApiConfig {
   }
 
   // ============================================================
-  // USER ADDRESSES (COMMERCE SCHEMA)
+  // USER ADDRESSES
   // ============================================================
 
   static String get getUserAddresses => '$baseUrl/addresses';
@@ -156,7 +159,7 @@ class ApiConfig {
   static String deleteUserAddress(dynamic id) => '$baseUrl/addresses/$id';
 
   // ============================================================
-  // RIWAYAT PENJEMPUTAN WARGA (MY PICKUP JOBS)
+  // RIWAYAT PENJEMPUTAN WARGA
   // ============================================================
 
   static String get getMyPickupOrders => '$baseUrl/jobs/my-pickup-orders';
