@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -22,58 +21,84 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
-
     _nameController.text = widget.user['name'] ?? '';
     _emailController.text = widget.user['email'] ?? '';
-  }
-
-  Future<void> _updateProfile() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final response = await http.patch(
-        Uri.parse(ApiConfig.updateProfile),
-        headers: ApiConfig.headers,
-        body: json.encode({
-          'name': _nameController.text,
-          'email': _emailController.text,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil berhasil diperbarui')),
-        );
-
-        Navigator.pop(context, true);
-      } else {
-        throw Exception('Gagal memperbarui profil: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-
     super.dispose();
+  }
+
+  Future<void> _updateProfile() async {
+    final String name = _nameController.text.trim();
+    final String email = _emailController.text.trim();
+
+    if (name.isEmpty) {
+      _showSnackBar('Nama lengkap tidak boleh kosong', isError: true);
+      return;
+    }
+
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _showSnackBar('Format alamat email tidak valid', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.patch(
+        Uri.parse(ApiConfig.updateProfile),
+        headers: {
+          ...ApiConfig.headers,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'name': name,
+          'email': email,
+        }),
+      );
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {}
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui'),
+            backgroundColor: Color(0xFF2E7D32),
+          ),
+        );
+        Navigator.pop(context, true);
+      } else {
+        final String errorMsg = decoded is Map && decoded['message'] != null
+            ? decoded['message'].toString()
+            : 'Gagal memperbarui profil (${response.statusCode})';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(e.toString().replaceFirst('Exception: ', ''), isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red : const Color(0xFF2E7D32),
+        ),
+      );
   }
 
   @override
@@ -112,26 +137,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Row(
             children: [
               IconButton(
-                onPressed: _isLoading
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                      },
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
-                  size: 21,
-                ),
+                onPressed: _isLoading ? null : () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 21),
               ),
               const SizedBox(width: 2),
               const Expanded(
                 child: Text(
                   'Edit Profil',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -149,46 +162,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 20, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildProfileAvatar(),
-
           const SizedBox(height: 30),
-
           const Text(
             'Informasi Pribadi',
-            style: TextStyle(
-              color: Color(0xFF212121),
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(color: Color(0xFF212121), fontSize: 17, fontWeight: FontWeight.w700),
           ),
-
           const SizedBox(height: 6),
-
           const Text(
             'Perbarui nama dan alamat email akun Anda.',
-            style: TextStyle(
-              color: Color(0xFF757575),
-              fontSize: 13,
-              height: 1.4,
-            ),
+            style: TextStyle(color: Color(0xFF757575), fontSize: 13, height: 1.4),
           ),
-
           const SizedBox(height: 24),
-
           _buildInputLabel('Nama Lengkap'),
-
           const SizedBox(height: 8),
-
           _buildTextField(
             controller: _nameController,
             hintText: 'Masukkan nama lengkap',
@@ -196,13 +189,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.name,
           ),
-
           const SizedBox(height: 20),
-
           _buildInputLabel('Email'),
-
           const SizedBox(height: 8),
-
           _buildTextField(
             controller: _emailController,
             hintText: 'Masukkan alamat email',
@@ -210,14 +199,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
             textInputAction: TextInputAction.done,
             keyboardType: TextInputType.emailAddress,
             onSubmitted: (_) {
-              if (!_isLoading) {
-                _updateProfile();
-              }
+              if (!_isLoading) _updateProfile();
             },
           ),
-
           const SizedBox(height: 32),
-
           _buildSaveButton(),
         ],
       ),
@@ -233,11 +218,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           shape: BoxShape.circle,
           border: Border.all(color: const Color(0xFFE8E8E8)),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4)),
           ],
         ),
         child: const CircleAvatar(
@@ -252,11 +233,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildInputLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(
-        color: Color(0xFF424242),
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-      ),
+      style: const TextStyle(color: Color(0xFF424242), fontSize: 14, fontWeight: FontWeight.w600),
     );
   }
 
@@ -274,25 +251,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
-      style: const TextStyle(
-        color: Color(0xFF212121),
-        fontSize: 15,
-        fontWeight: FontWeight.w500,
-      ),
+      style: const TextStyle(color: Color(0xFF212121), fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(
-          color: Color(0xFF9E9E9E),
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
+        hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
         prefixIcon: Icon(icon, color: const Color(0xFF757575), size: 22),
         filled: true,
         fillColor: const Color(0xFFF7F9FB),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 17,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -304,10 +270,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.5),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
         ),
       ),
     );
@@ -324,28 +286,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
           disabledBackgroundColor: const Color(0xFFEF9A9A),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: _isLoading
             ? const SizedBox(
                 width: 23,
                 height: 23,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.save_outlined, size: 20),
                   SizedBox(width: 10),
-                  Text(
-                    'Simpan Perubahan',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
+                  Text('Simpan Perubahan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ],
               ),
       ),

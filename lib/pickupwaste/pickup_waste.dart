@@ -22,6 +22,11 @@ class _PickupWastePageState extends State<PickupWastePage> {
   // Bobot Sampah yang Diinput
   double _estimatedWeight = 15.0;
 
+  // Master Jenis Sampah dari Database
+  bool _isLoadingWasteTypes = true;
+  List<Map<String, dynamic>> _availableWasteTypes = [];
+  final Set<int> _selectedWasteTypeIds = {};
+
   // Spesifikasi Kapasitas Resmi Armada EcoCash
   final List<Map<String, dynamic>> _fleetSpecs = [
     {
@@ -52,7 +57,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
   int _selectedFleetIndex = 0;
   String selectedDestination = "container"; // 'container' atau 'enterprise'
-  int _selectedMachineIndex = 0; // Menyimpan indeks mesin database yang dipilih warga
+  int _selectedMachineIndex = 0;
 
   bool loading = false;
   bool isFetchingMachines = true;
@@ -64,6 +69,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
   void initState() {
     super.initState();
     _fetchAddressesFromDb();
+    _fetchWasteTypesFromDb();
     _loadInitialMachines();
   }
 
@@ -73,7 +79,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
     super.dispose();
   }
 
-  // 1. Ambil alamat dari Database melalui REST API
+  // 1. Ambil alamat aktif dari Database
   Future<void> _fetchAddressesFromDb() async {
     setState(() => _isLoadingAddress = true);
     try {
@@ -102,7 +108,77 @@ class _PickupWastePageState extends State<PickupWastePage> {
     }
   }
 
-  // 2. Ambil seluruh data Smart Container aktif dari Database Backend
+  // 2. Ambil Master Jenis Sampah dari Database Backend
+  Future<void> _fetchWasteTypesFromDb() async {
+    setState(() => _isLoadingWasteTypes = true);
+    try {
+      var res = await http.get(
+        Uri.parse(ApiConfig.getWasteTypes),
+        headers: ApiConfig.headers,
+      );
+
+      if (res.statusCode != 200) {
+        res = await http.get(
+          Uri.parse(ApiConfig.getMachineWasteTypes),
+          headers: ApiConfig.headers,
+        );
+      }
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final List list = decoded['data'] is List ? decoded['data'] : [];
+
+        if (list.isNotEmpty) {
+          setState(() {
+            _availableWasteTypes = list.map((item) {
+              final String rawName = (item['name'] ?? 'Material').toString();
+              return {
+                'id': item['id'] ?? 1,
+                'name': _formatWasteTypeName(rawName),
+                'rawName': rawName,
+                'co2FactorKg': item['co2FactorKg'] ?? '2.0',
+              };
+            }).toList();
+
+            if (_availableWasteTypes.isNotEmpty) {
+              _selectedWasteTypeIds.add(_availableWasteTypes.first['id'] as int);
+            }
+          });
+          return;
+        }
+      }
+
+      _setDefaultWasteTypes();
+    } catch (e) {
+      debugPrint("Gagal memuat jenis sampah: $e");
+      _setDefaultWasteTypes();
+    } finally {
+      if (mounted) setState(() => _isLoadingWasteTypes = false);
+    }
+  }
+
+  void _setDefaultWasteTypes() {
+    setState(() {
+      _availableWasteTypes = [
+        {'id': 1, 'name': 'Plastik (PET/HDPE)', 'rawName': 'plastic'},
+        {'id': 2, 'name': 'Kertas & Karton', 'rawName': 'paper'},
+        {'id': 3, 'name': 'Logam & Kaleng', 'rawName': 'metal'},
+        {'id': 4, 'name': 'Kaca & Botol', 'rawName': 'glass'},
+      ];
+      _selectedWasteTypeIds.add(1);
+    });
+  }
+
+  String _formatWasteTypeName(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('plastic') || lower.contains('plastik')) return 'Plastik (PET/HDPE)';
+    if (lower.contains('paper') || lower.contains('kertas') || lower.contains('karton')) return 'Kertas & Karton';
+    if (lower.contains('metal') || lower.contains('logam') || lower.contains('kaleng')) return 'Logam & Kaleng';
+    if (lower.contains('glass') || lower.contains('kaca')) return 'Kaca & Botol';
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+
+  // 3. Ambil data Smart Container dari Database
   Future<void> _loadInitialMachines() async {
     setState(() => isFetchingMachines = true);
     try {
@@ -113,7 +189,6 @@ class _PickupWastePageState extends State<PickupWastePage> {
         if (machineData['data'] is List && (machineData['data'] as List).isNotEmpty) {
           setState(() {
             activeMachines = machineData['data'];
-            // Pastikan index seleksi selalu valid
             if (_selectedMachineIndex >= activeMachines.length) {
               _selectedMachineIndex = 0;
             }
@@ -121,13 +196,12 @@ class _PickupWastePageState extends State<PickupWastePage> {
         }
       }
     } catch (e) {
-      debugPrint("Gagal memuat data mesin dari DB: $e");
+      debugPrint("Gagal memuat data mesin: $e");
     } finally {
       if (mounted) setState(() => isFetchingMachines = false);
     }
   }
 
-  // Evaluasi batas muatan armada saat slider digeser
   void _onWeightChanged(double newWeight) {
     setState(() {
       _estimatedWeight = newWeight.clamp(1.0, 600.0);
@@ -164,7 +238,6 @@ class _PickupWastePageState extends State<PickupWastePage> {
     }
   }
 
-  // Dialog Bottom Sheet untuk memilih seluruh Smart Container dari Database
   void _openMachineSelector() {
     if (activeMachines.isEmpty) return;
 
@@ -186,20 +259,11 @@ class _PickupWastePageState extends State<PickupWastePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Pilih Smart Container Tujuan",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
+                      const Text("Pilih Smart Container Tujuan", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          "${activeMachines.length} Mesin Aktif",
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary),
-                        ),
+                        decoration: BoxDecoration(color: primary.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                        child: Text("${activeMachines.length} Mesin Aktif", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary)),
                       ),
                     ],
                   ),
@@ -224,43 +288,21 @@ class _PickupWastePageState extends State<PickupWastePage> {
                             color: isSelected ? primary.withOpacity(0.15) : const Color(0xFFF4F6F8),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(
-                            Icons.inventory_2_outlined,
-                            color: isSelected ? primary : Colors.grey,
-                            size: 24,
-                          ),
+                          child: Icon(Icons.inventory_2_outlined, color: isSelected ? primary : Colors.grey, size: 24),
                         ),
                         title: Row(
                           children: [
-                            Text(
-                              m['name'] ?? 'Smart Container',
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
+                            Text(m['name'] ?? 'Smart Container', style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 14)),
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                code,
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
-                              ),
+                              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)),
+                              child: Text(code, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
                             ),
                           ],
                         ),
-                        subtitle: Text(
-                          "$area • Terisi $fill%",
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        trailing: Icon(
-                          isSelected ? Icons.check_circle : Icons.circle_outlined,
-                          color: isSelected ? primary : Colors.grey.shade400,
-                        ),
+                        subtitle: Text("$area • Terisi $fill%", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        trailing: Icon(isSelected ? Icons.check_circle : Icons.circle_outlined, color: isSelected ? primary : Colors.grey.shade400),
                         onTap: () {
                           setState(() {
                             _selectedMachineIndex = i;
@@ -280,7 +322,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
     );
   }
 
-  // 3. Kirim pesanan penjemputan ke Backend
+  // 4. Kirim pesanan penjemputan ke Backend
   Future<void> _orderPickup() async {
     if (!ApiConfig.hasToken) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -292,6 +334,13 @@ class _PickupWastePageState extends State<PickupWastePage> {
     if (_selectedAddress == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Pilih atau tambahkan alamat penjemputan terlebih dahulu"), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (_selectedWasteTypeIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pilih minimal satu jenis sampah yang ingin disetor!"), backgroundColor: Colors.red),
       );
       return;
     }
@@ -330,13 +379,23 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
       final String finalAddress = (_selectedAddress!['detail'] ?? _selectedAddress!['address'] ?? 'Alamat Warga').toString();
 
+      final List<String> selectedNames = _availableWasteTypes
+          .where((t) => _selectedWasteTypeIds.contains(t['id']))
+          .map((t) => t['name'].toString())
+          .toList();
+
+      final String materialCategoryString = selectedNames.join(', ');
+
+      // Payload lengkap: addressId & vehicleType dikirim agar PostGIS backend aktif
       final payload = {
         "title": "Penjemputan Sampah - Warga",
+        "addressId": _selectedAddress?['id'],
         "address": finalAddress,
         "notes": "${_notesController.text.trim()} (Armada: ${selectedFleet['title']} | Tujuan: $destinationTitle)",
         "estimatedWeight": _estimatedWeight,
         "vehicleType": selectedFleet['type'],
-        "materialCategory": "Plastik PET & Karton",
+        "materialCategory": materialCategoryString,
+        "wasteTypeIds": _selectedWasteTypeIds.toList(),
         if (targetMachineId != null) "targetMachineId": targetMachineId,
       };
 
@@ -363,7 +422,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
               ],
             ),
             content: Text(
-              "Permintaan jemput sampah berhasil dibuat menggunakan armada ${selectedFleet['title']}. Tujuan penyetoran: $destinationTitle.",
+              "Permintaan jemput sampah ($materialCategoryString) berhasil dibuat dengan armada ${selectedFleet['title']}.",
             ),
             actions: [
               TextButton(
@@ -382,16 +441,56 @@ class _PickupWastePageState extends State<PickupWastePage> {
                     MaterialPageRoute(builder: (context) => const RiwayatPickupPage()),
                   );
                 },
-                child: const Text("Pantau Status", style: TextStyle(color: Colors.white)),
+                child: const Text("Pantau Status & Chat Driver", style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
         );
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Gagal membuat pesanan'), backgroundColor: Colors.red),
-        );
+        final String errorMsg = data['message'] ?? 'Gagal membuat pesanan penjemputan';
+        final String? errorCode = data['code'];
+
+        // Tangani pesan penolakan PostGIS jarak jauh secara ramah
+        if (errorCode == 'OUT_OF_SERVICE_AREA' || errorMsg.contains('terlalu jauh')) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.location_off, color: Colors.redAccent, size: 26),
+                  SizedBox(width: 8),
+                  Text("Di Luar Jangkauan", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Text(
+                "$errorMsg\n\nTips: Anda bisa mengalihkan tujuan penyetoran ke Mitra Daur Ulang (TPS/Pabrik) yang siap menampung sampah tanpa batas jangkauan kontainer.",
+                style: const TextStyle(fontSize: 13, height: 1.4),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Tutup", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: primary),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      selectedDestination = "enterprise";
+                    });
+                  },
+                  child: const Text("Pilih Mitra Daur Ulang", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -420,6 +519,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
                 children: [
                   const SizedBox(height: 16),
                   _buildAddressCard(),
+                  const SizedBox(height: 16),
+                  _buildWasteTypeSection(),
                   const SizedBox(height: 16),
                   _buildWeightControlSection(),
                   const SizedBox(height: 20),
@@ -529,6 +630,78 @@ class _PickupWastePageState extends State<PickupWastePage> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildWasteTypeSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Kategori Jenis Sampah', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              if (_isLoadingWasteTypes)
+                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                Text(
+                  '${_selectedWasteTypeIds.length} Dipilih',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primary),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pilih satu atau beberapa jenis sampah daur ulang yang ingin Anda serahkan.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _availableWasteTypes.map((type) {
+              final int id = type['id'] as int;
+              final bool isSelected = _selectedWasteTypeIds.contains(id);
+
+              return FilterChip(
+                label: Text(type['name']),
+                selected: isSelected,
+                selectedColor: primary.withOpacity(0.18),
+                checkmarkColor: primary,
+                backgroundColor: const Color(0xFFF4F6F8),
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? primary : Colors.black87,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: isSelected ? primary : Colors.grey.shade300),
+                ),
+                onSelected: (val) {
+                  setState(() {
+                    if (val) {
+                      _selectedWasteTypeIds.add(id);
+                    } else {
+                      if (_selectedWasteTypeIds.length > 1) {
+                        _selectedWasteTypeIds.remove(id);
+                      }
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -749,7 +922,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
           "enterprise",
           Icons.business_outlined,
           "Mitra Daur Ulang (TPS/Pabrik)",
-          "Siap menampung kapasitas besar tanpa batas",
+          "Siap menampung kapasitas besar tanpa batas jangkauan kontainer",
         ),
       ],
     );

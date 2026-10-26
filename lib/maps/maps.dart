@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/maps/detail.dart';
 import 'package:flutter/material.dart';
@@ -16,17 +15,20 @@ class Maps extends StatefulWidget {
 }
 
 class _MapsState extends State<Maps> {
-  LatLng _currentLocation = const LatLng(-6.9175, 107.6191);
+  final Color primary = const Color(0xFF4DB67D);
+  LatLng _currentLocation = const LatLng(-6.9175, 107.6191); // Default Kota Bandung
 
   final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
 
   List<dynamic> _machines = [];
-
   bool _isLoading = true;
   bool _isShowingDetail = false;
-
-  // Menyimpan seluruh data mesin yang dipilih.
   Map<String, dynamic>? _selectedMachine;
+
+  // Filter Chip Aktif: 'ALL', 'AVAILABLE', 'NEARBY'
+  String _activeFilter = 'ALL';
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -34,16 +36,20 @@ class _MapsState extends State<Maps> {
     _determinePosition();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _determinePosition() async {
     final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
     if (!serviceEnabled) {
       await _fetchNearestMachines(_currentLocation);
       return;
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
-
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
@@ -62,13 +68,11 @@ class _MapsState extends State<Maps> {
       final LatLng userLatLng = LatLng(position.latitude, position.longitude);
 
       if (!mounted) return;
-
       setState(() {
         _currentLocation = userLatLng;
       });
 
-      _mapController.move(userLatLng, 14);
-
+      _mapController.move(userLatLng, 13);
       await _fetchNearestMachines(userLatLng);
     } catch (_) {
       await _fetchNearestMachines(_currentLocation);
@@ -76,39 +80,66 @@ class _MapsState extends State<Maps> {
   }
 
   Future<void> _fetchNearestMachines(LatLng location) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final String url = ApiConfig.getNearestMachines(
-      location.latitude,
-      location.longitude,
-    );
+    setState(() => _isLoading = true);
 
     try {
+      final String nearestUrl = ApiConfig.getNearestMachines(
+        location.latitude,
+        location.longitude,
+      );
+
       final response = await http.get(
-        Uri.parse(url),
+        Uri.parse(nearestUrl),
         headers: ApiConfig.headers,
       );
 
-      if (!mounted) return;
-
+      List<dynamic> fetched = [];
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseBody = jsonDecode(response.body);
-
-        setState(() {
-          _machines = responseBody['data'] ?? [];
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _machines = [];
-          _isLoading = false;
-        });
+        final decoded = jsonDecode(response.body);
+        fetched = decoded['data'] is List ? decoded['data'] : [];
       }
+
+      // Fallback Cerdas: Jika GPS pengguna berada di luar radius ST_DWithin backend,
+      // ambil seluruh mesin aktif publik dan hitung jarak Haversine dari titik user
+      if (fetched.isEmpty) {
+        final publicRes = await http.get(
+          Uri.parse(ApiConfig.getPublicMachines),
+          headers: ApiConfig.headers,
+        );
+
+        if (publicRes.statusCode == 200) {
+          final publicDecoded = jsonDecode(publicRes.body);
+          final rawList = publicDecoded['data'] is List ? publicDecoded['data'] : [];
+
+          fetched = rawList.map((m) {
+            final lat = double.tryParse(m['latitude']?.toString() ?? '');
+            final lng = double.tryParse(m['longitude']?.toString() ?? '');
+            double distKm = 0.0;
+            if (lat != null && lng != null) {
+              distKm = Geolocator.distanceBetween(
+                location.latitude,
+                location.longitude,
+                lat,
+                lng,
+              ) / 1000.0;
+            }
+            final mapData = Map<String, dynamic>.from(m);
+            mapData['distanceInKm'] = distKm;
+            return mapData;
+          }).toList();
+
+          fetched.sort((a, b) => ((a['distanceInKm'] ?? 0) as double)
+              .compareTo((b['distanceInKm'] ?? 0) as double));
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _machines = fetched;
+        _isLoading = false;
+      });
     } catch (_) {
       if (!mounted) return;
-
       setState(() {
         _machines = [];
         _isLoading = false;
@@ -116,24 +147,43 @@ class _MapsState extends State<Maps> {
     }
   }
 
-  void _openDetail(Map<String, dynamic> machine) {
-    final double? latitude = double.tryParse(
-      machine['latitude']?.toString() ?? '',
-    );
+  List<dynamic> get _filteredMachines {
+    return _machines.where((item) {
+      final m = Map<String, dynamic>.from(item);
+      final String name = (m['name'] ?? '').toString().toLowerCase();
+      final String place = (m['placeName'] ?? '').toString().toLowerCase();
+      final String addr = (m['address'] ?? '').toString().toLowerCase();
+      final String status = (m['status'] ?? '').toString().toUpperCase();
+      final String fill = (m['fillLevel'] ?? '').toString().toUpperCase();
 
-    final double? longitude = double.tryParse(
-      machine['longitude']?.toString() ?? '',
-    );
+      // Filter Pencarian Teks
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        if (!name.contains(q) && !place.contains(q) && !addr.contains(q)) {
+          return false;
+        }
+      }
+
+      // Filter Kategori Chip
+      if (_activeFilter == 'AVAILABLE') {
+        if (status != 'OPERATING' || fill == 'FULL') return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  void _openDetail(Map<String, dynamic> machine) {
+    final double? latitude = double.tryParse(machine['latitude']?.toString() ?? '');
+    final double? longitude = double.tryParse(machine['longitude']?.toString() ?? '');
 
     setState(() {
       _selectedMachine = Map<String, dynamic>.from(machine);
-
       _isShowingDetail = true;
     });
 
-    // Arahkan peta ke mesin yang dipilih.
     if (latitude != null && longitude != null) {
-      _mapController.move(LatLng(latitude, longitude), 16);
+      _mapController.move(LatLng(latitude, longitude), 15.5);
     }
   }
 
@@ -144,40 +194,80 @@ class _MapsState extends State<Maps> {
     });
   }
 
+  Color _getMarkerStatusColor(String status, String fillLevel) {
+    if (status != 'OPERATING') return const Color(0xFFF57C00); // Maintenance
+    if (fillLevel == 'FULL') return const Color(0xFFC62828); // Penuh
+    return const Color(0xFF2E7D32); // Siap pakai
+  }
+
+  String _formatDistance(dynamic val) {
+    if (val == null) return '-';
+    final double? d = double.tryParse(val.toString());
+    if (d == null) return '-';
+    if (d < 1.0) {
+      return '${(d * 1000).toInt()} m';
+    }
+    return '${d.toStringAsFixed(1)} km';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredMachines;
+
     final List<Marker> mapMarkers = [
       Marker(
         point: _currentLocation,
         alignment: Alignment.center,
-        child: const Icon(Icons.my_location, color: Colors.blue, size: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: Icon(Icons.my_location, color: Colors.blue, size: 24),
+          ),
+        ),
       ),
+      ...filtered.map((machineData) {
+        final Map<String, dynamic> machine = Map<String, dynamic>.from(machineData);
+        final double? lat = double.tryParse(machine['latitude']?.toString() ?? '');
+        final double? lng = double.tryParse(machine['longitude']?.toString() ?? '');
 
-      ..._machines.map((machineData) {
-        final Map<String, dynamic> machine = Map<String, dynamic>.from(
-          machineData,
-        );
+        if (lat == null || lng == null) return null;
 
-        final double? latitude = double.tryParse(
-          machine['latitude']?.toString() ?? '',
-        );
-
-        final double? longitude = double.tryParse(
-          machine['longitude']?.toString() ?? '',
-        );
-
-        if (latitude == null || longitude == null) {
-          return null;
-        }
+        final String status = (machine['status'] ?? 'OPERATING').toString().toUpperCase();
+        final String fill = (machine['fillLevel'] ?? 'LOW').toString().toUpperCase();
+        final Color pinColor = _getMarkerStatusColor(status, fill);
+        final bool isSelected = _selectedMachine?['id'] == machine['id'];
 
         return Marker(
-          point: LatLng(latitude, longitude),
+          point: LatLng(lat, lng),
           alignment: Alignment.bottomCenter,
-          width: 45,
-          height: 45,
+          width: isSelected ? 52 : 44,
+          height: isSelected ? 52 : 44,
           child: GestureDetector(
             onTap: () => _openDetail(machine),
-            child: Image.asset('assets/icons/pin.png', fit: BoxFit.contain),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: pinColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: pinColor.withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.recycling_rounded, color: Colors.white, size: 20),
+                ),
+              ],
+            ),
           ),
         );
       }).whereType<Marker>(),
@@ -190,7 +280,7 @@ class _MapsState extends State<Maps> {
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _currentLocation,
-              initialZoom: 14,
+              initialZoom: 13,
             ),
             children: [
               TileLayer(
@@ -201,61 +291,63 @@ class _MapsState extends State<Maps> {
             ],
           ),
 
-          Positioned(
-            top: 50,
-            right: 15,
-            child: FloatingActionButton(
-              mini: true,
-              backgroundColor: Colors.white,
-              onPressed: _determinePosition,
-              child: const Icon(Icons.gps_fixed, color: Colors.blue),
-            ),
-          ),
-
+          // Tombol Kembali
           Positioned(
             top: 50,
             left: 15,
             child: FloatingActionButton(
+              heroTag: "btn_back",
               mini: true,
               backgroundColor: Colors.white,
               onPressed: () => Navigator.pop(context),
-              child: const Icon(Icons.arrow_back, color: Colors.black),
+              child: const Icon(Icons.arrow_back, color: Colors.black87),
             ),
           ),
 
+          // Tombol Reset Lokasi GPS
+          Positioned(
+            top: 50,
+            right: 15,
+            child: FloatingActionButton(
+              heroTag: "btn_gps",
+              mini: true,
+              backgroundColor: Colors.white,
+              onPressed: _determinePosition,
+              child: const Icon(Icons.gps_fixed, color: Color(0xFF4285F4)),
+            ),
+          ),
+
+          // Bottom Sheet Daftar Mesin & Status
           DraggableScrollableSheet(
             initialChildSize: 0.38,
-            minChildSize: 0.15,
+            minChildSize: 0.16,
             maxChildSize: 0.92,
             snap: true,
             builder: (BuildContext context, ScrollController controller) {
               return Material(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(30),
-                ),
-                clipBehavior: Clip.antiAlias,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                elevation: 12,
                 child: Column(
                   children: [
                     Container(
-                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      margin: const EdgeInsets.symmetric(vertical: 10),
                       height: 5,
-                      width: 40,
+                      width: 44,
                       decoration: BoxDecoration(
                         color: Colors.grey[300],
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-
                     Expanded(
                       child: _isShowingDetail
-                          ? _selectedMachine == null
-                                ? const SizedBox.shrink()
-                                : DetailMaps(
-                                    machine: _selectedMachine!,
-                                    onBack: _closeDetail,
-                                  )
-                          : _buildMainList(controller),
+                          ? (_selectedMachine == null
+                              ? const SizedBox.shrink()
+                              : DetailMaps(
+                                  machine: _selectedMachine!,
+                                  onBack: _closeDetail,
+                                ))
+                          : _buildMainList(controller, filtered),
                     ),
                   ],
                 ),
@@ -267,37 +359,45 @@ class _MapsState extends State<Maps> {
     );
   }
 
-  Widget _buildMainList(ScrollController controller) {
+  Widget _buildMainList(ScrollController controller, List<dynamic> filtered) {
     return ListView.builder(
       controller: controller,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _isLoading ? 3 : _machines.length + 2,
+      itemCount: _isLoading ? 3 : filtered.length + 2,
       itemBuilder: (context, index) {
         if (index == 0) {
           return Column(
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4DB67D),
-                  borderRadius: BorderRadius.circular(20),
+                  color: primary,
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.location_on, color: Colors.white),
-                    SizedBox(width: 10),
-                    Text(
-                      'Ecomap Location',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                    const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Smart Container Terdekat',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          Text(
+                            '${filtered.length} kontainer ditemukan aktif di sekitar Anda',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 14),
             ],
           );
         }
@@ -306,32 +406,43 @@ class _MapsState extends State<Maps> {
           return Column(
             children: [
               TextField(
+                controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search location...',
-                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Cari kontainer, stasiun, jalan...',
+                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
                   filled: true,
                   fillColor: Colors.grey[100],
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
                 ),
+                onChanged: (val) {
+                  setState(() => _searchQuery = val.trim());
+                },
               ),
-
-              const SizedBox(height: 15),
-
+              const SizedBox(height: 12),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _chip('Recommendation', Icons.thumb_up, true),
-                    _chip('Favorite', Icons.star_border, false),
-                    _chip('Nearby', Icons.explore_outlined, false),
+                    _chip('Semua', 'ALL', Icons.apps),
+                    _chip('Siap Pakai', 'AVAILABLE', Icons.check_circle_outline),
                   ],
                 ),
               ),
-
-              const Divider(height: 40),
+              const Divider(height: 28),
             ],
           );
         }
@@ -339,55 +450,97 @@ class _MapsState extends State<Maps> {
         if (_isLoading) {
           return const Center(
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(24),
               child: CircularProgressIndicator(),
             ),
           );
         }
 
-        final Map<String, dynamic> machine = Map<String, dynamic>.from(
-          _machines[index - 2],
-        );
-
-        final String name = machine['name']?.toString() ?? 'Tanpa Nama';
-
-        final String address = machine['address']?.toString() ?? 'Tanpa Alamat';
-
-        final String status = machine['status']?.toString() ?? 'UNKNOWN';
-
-        final String distance = machine['distanceInKm']?.toString() ?? '0';
-
-        return Material(
-          color: Colors.transparent,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFE1F5FE),
-              child: Icon(
-                Icons.recycling,
-                color: status == 'OPERATING' ? Colors.green : Colors.grey,
+        if (filtered.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'Tidak ada Smart Container yang cocok dengan pencarian.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
               ),
+            ),
+          );
+        }
+
+        final Map<String, dynamic> machine = Map<String, dynamic>.from(filtered[index - 2]);
+        final String name = machine['name']?.toString() ?? 'Smart Container';
+        final String address = machine['address']?.toString() ?? machine['placeName'] ?? 'Lokasi Mesin';
+        final String status = (machine['status'] ?? 'OPERATING').toString().toUpperCase();
+        final String fill = (machine['fillLevel'] ?? 'LOW').toString().toUpperCase();
+        final String distStr = _formatDistance(machine['distanceInKm']);
+
+        final Color statusColor = _getMarkerStatusColor(status, fill);
+        final bool isFull = fill == 'FULL';
+        final bool isOperating = status == 'OPERATING';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            leading: CircleAvatar(
+              backgroundColor: statusColor.withOpacity(0.12),
+              child: Icon(Icons.recycling_rounded, color: statusColor, size: 22),
             ),
             title: Row(
               children: [
                 Expanded(
                   child: Text(
                     name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 10),
                 Text(
-                  '$distance km',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  distStr,
+                  style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ],
             ),
-            subtitle: Text(
-              address,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 2),
+                Text(
+                  address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.black54, fontSize: 11),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        isFull ? 'Kapasitas Penuh' : (isOperating ? 'Beroperasi' : 'Perawatan'),
+                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Status: $fill',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ],
             ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
             onTap: () => _openDetail(machine),
           ),
         );
@@ -395,29 +548,35 @@ class _MapsState extends State<Maps> {
     );
   }
 
-  Widget _chip(String label, IconData icon, bool active) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFFE1F5FE) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: active ? Colors.transparent : Colors.grey[300]!,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: active ? Colors.blue : Colors.grey),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: active ? Colors.blue : Colors.grey,
-              fontSize: 12,
-            ),
+  Widget _chip(String label, String filterKey, IconData icon) {
+    final bool active = _activeFilter == filterKey;
+    return GestureDetector(
+      onTap: () => setState(() => _activeFilter = filterKey),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? primary.withOpacity(0.15) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active ? primary : Colors.grey.shade300,
+            width: active ? 1.5 : 1,
           ),
-        ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 15, color: active ? primary : Colors.grey),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? primary : Colors.grey.shade700,
+                fontSize: 12,
+                fontWeight: active ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../ipconfig.dart';
+import 'chat_driver_page.dart';
 
 class RiwayatPickupPage extends StatefulWidget {
   const RiwayatPickupPage({super.key});
@@ -165,6 +166,7 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> {
                           .replaceAll(RegExp(r'\[PEMESAN_ID:\d+\]'), '')
                           .replaceAll(RegExp(r'\[WEIGHT:[\d.]+\]'), '')
                           .replaceAll(RegExp(r'\[VEHICLE:\w+\]'), '')
+                          .replaceAll(RegExp(r'\[TARGET_MACHINE_ID:\d+\]'), '')
                           .trim();
 
                       final double weight = _parseWeight(order['estimatedWeight'] ?? order['totalWeight']);
@@ -221,31 +223,78 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> {
                               overflow: TextOverflow.ellipsis,
                             ),
 
+                            // Kartu Driver & Tombol Chat
                             if (partnerName != null && status != 'AVAILABLE') ...[
                               const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF4F6F8),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.two_wheeler, size: 20, color: Color(0xFF0F2C59)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Kurir: $partnerName ${vehicleInfo != null ? '($vehicleInfo)' : ''}',
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                        overflow: TextOverflow.ellipsis,
+                              InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatDriverPage(
+                                        jobId: order['id'] ?? order['jobId'],
+                                        driverName: partnerName,
+                                        driverPhone: partnerPhone,
+                                        vehicleInfo: vehicleInfo,
+                                        orderStatus: _getStatusLabel(status),
                                       ),
                                     ),
-                                    if (partnerPhone != null)
-                                      Text(
-                                        partnerPhone,
-                                        style: const TextStyle(fontSize: 11, color: Colors.teal),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF4F6F8),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.teal.shade100),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.two_wheeler, size: 22, color: Color(0xFF0F2C59)),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Kurir: $partnerName',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                                            ),
+                                            if (vehicleInfo != null)
+                                              Text(
+                                                vehicleInfo,
+                                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                              ),
+                                          ],
+                                        ),
                                       ),
-                                  ],
+                                      ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ChatDriverPage(
+                                                jobId: order['id'] ?? order['jobId'],
+                                                driverName: partnerName,
+                                                driverPhone: partnerPhone,
+                                                vehicleInfo: vehicleInfo,
+                                                orderStatus: _getStatusLabel(status),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        icon: const Icon(Icons.chat_bubble_outline, size: 14, color: Colors.white),
+                                        label: const Text('Chat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: primary,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          elevation: 0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
