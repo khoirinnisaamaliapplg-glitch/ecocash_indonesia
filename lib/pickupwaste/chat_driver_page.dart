@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../ipconfig.dart';
 
+// Alias tipe agar tidak terpotong saat proses copy-paste
+typedef ChatMap = Map<String, dynamic>;
+
 class ChatDriverPage extends StatefulWidget {
   final dynamic jobId;
   final String driverName;
@@ -30,7 +33,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  List<Map<String, dynamic>> _messages = [];
+  List<ChatMap> _messages = [];
   Timer? _pollingTimer;
   bool _isSending = false;
   String? _roomId;
@@ -95,7 +98,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
         {
           'id': 'sys-init',
           'sender': 'system',
-          'text': 'Kurir ${widget.driverName} telah mengambil tugas penjemputan sampah Anda.',
+          'text': 'Kurir ${widget.driverName} terhubung dengan tugas penjemputan Job #${widget.jobId}.',
           'time': 'Sistem',
         },
       ];
@@ -152,12 +155,12 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
     });
   }
 
-  void _parseMessages(List rawList) {
-    final List<Map<String, dynamic>> parsed = [
+  void _parseMessages(List<dynamic> rawList) {
+    final List<ChatMap> parsed = [
       {
         'id': 'sys-init',
         'sender': 'system',
-        'text': 'Kurir ${widget.driverName} telah mengambil tugas penjemputan sampah Anda.',
+        'text': 'Kurir ${widget.driverName} terhubung dengan tugas penjemputan Job #${widget.jobId}.',
         'time': 'Sistem',
       },
     ];
@@ -217,7 +220,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
       }
 
       if (_roomId != null) {
-        final response = await http.post(
+        await http.post(
           Uri.parse(_buildUrl('/chat/message')),
           headers: {
             ...ApiConfig.headers,
@@ -230,25 +233,9 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
             'senderType': 'REGULAR_USER',
           }),
         );
-
-        if (response.statusCode != 200 && response.statusCode != 201) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Gagal mengirim pesan (${response.statusCode}): ${response.body}"),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
       }
     } catch (e) {
       debugPrint("Gagal mengirim pesan chat: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal mengirim pesan: $e"), backgroundColor: Colors.red),
-        );
-      }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -291,6 +278,9 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isCompleted = widget.orderStatus.toLowerCase().contains('selesai') ||
+        widget.orderStatus.toLowerCase().contains('completed');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8F3),
       appBar: AppBar(
@@ -318,7 +308,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    widget.vehicleInfo != null ? '${widget.vehicleInfo} • Driver Aktif' : 'Driver EcoCash Partner',
+                    widget.vehicleInfo != null ? '${widget.vehicleInfo} • Driver' : 'Driver EcoCash Partner',
                     style: const TextStyle(fontSize: 11, color: Colors.teal),
                   ),
                 ],
@@ -337,11 +327,14 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
       ),
       body: Column(
         children: [
-          _buildStatusBanner(),
+          _buildStatusBanner(isCompleted),
           Expanded(
             child: _messages.isEmpty
                 ? const Center(
-                    child: Text("Belum ada pesan. Mulai obrolan dengan kurir.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    child: Text(
+                      "Belum ada pesan. Riwayat percakapan kurir akan tampil di sini.",
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   )
                 : ListView.builder(
                     controller: _scrollController,
@@ -375,26 +368,36 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
                     },
                   ),
           ),
-          _buildQuickTemplates(),
-          _buildInputBar(),
+          if (!isCompleted) _buildQuickTemplates(),
+          _buildInputBar(isCompleted),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBanner() {
+  Widget _buildStatusBanner(bool isCompleted) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: primary.withOpacity(0.1),
+      color: isCompleted ? Colors.green.shade50 : primary.withOpacity(0.1),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 16, color: Colors.teal),
+          Icon(
+            isCompleted ? Icons.verified : Icons.info_outline,
+            size: 16,
+            color: isCompleted ? Colors.green : Colors.teal,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Status: ${widget.orderStatus}. Koordinasikan titik temu sampah dengan kurir.',
-              style: const TextStyle(fontSize: 11, color: Colors.teal, fontWeight: FontWeight.w600),
+              isCompleted
+                  ? 'Status: ${widget.orderStatus}. Riwayat chat tetap tersimpan jika Anda butuh rekonsiliasi atau komplain ke kurir.'
+                  : 'Status: ${widget.orderStatus}. Koordinasikan titik temu sampah dengan kurir.',
+              style: TextStyle(
+                fontSize: 11,
+                color: isCompleted ? Colors.green.shade800 : Colors.teal,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -469,7 +472,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
     );
   }
 
-  Widget _buildInputBar() {
+  Widget _buildInputBar(bool isCompleted) {
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -481,7 +484,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
                 controller: _msgController,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: 'Tulis pesan untuk driver...',
+                  hintText: isCompleted ? 'Tulis pesan lanjutan atau catatan komplain...' : 'Tulis pesan untuk driver...',
                   hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   filled: true,
