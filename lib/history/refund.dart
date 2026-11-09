@@ -1,9 +1,11 @@
 import 'dart:convert';
-
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+
+// Alias tipe agar kebal error copy-paste kurung siku generik
+typedef SessionMap = Map<String, dynamic>;
 
 class RefundsScreen extends StatefulWidget {
   const RefundsScreen({super.key});
@@ -13,7 +15,14 @@ class RefundsScreen extends StatefulWidget {
 }
 
 class _RefundsScreenState extends State<RefundsScreen> {
-  late Future<List<Map<String, dynamic>>> _sessionsFuture;
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
+  late Future<List<SessionMap>> _sessionsFuture;
 
   final NumberFormat _currencyFormat = NumberFormat.currency(
     locale: 'id_ID',
@@ -24,25 +33,21 @@ class _RefundsScreenState extends State<RefundsScreen> {
   @override
   void initState() {
     super.initState();
-
     _sessionsFuture = _fetchSessions();
   }
 
   // ============================================================
-  // FETCH SESSION HISTORY
+  // FETCH SESSION HISTORY (LOGIKA & INTEGRASI BE UTUH)
   // ============================================================
 
-  Future<List<Map<String, dynamic>>> _fetchSessions() async {
+  Future<List<SessionMap>> _fetchSessions() async {
     final response = await http.get(
       Uri.parse(ApiConfig.getMySessionHistory),
       headers: ApiConfig.headers,
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Gagal memuat riwayat: '
-        '${response.statusCode}',
-      );
+      throw Exception('Gagal memuat riwayat: ${response.statusCode}');
     }
 
     final dynamic decodedResponse = jsonDecode(response.body);
@@ -57,37 +62,26 @@ class _RefundsScreenState extends State<RefundsScreen> {
       return [];
     }
 
-    final List<Map<String, dynamic>> sessions = rawData
-        .whereType<Map>()
+    final List<SessionMap> sessions = rawData
+        .whereType()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
 
-    /*
-     * Setiap sesi dilengkapi dengan:
-     * 1. Detail sesi untuk menghitung berat dan pendapatan.
-     * 2. Detail mesin untuk memperoleh lokasi.
-     */
-    final List<Map<String, dynamic>> completedSessions = await Future.wait(
+    final List<SessionMap> completedSessions = await Future.wait(
       sessions.map(_completeSessionData),
     );
 
     return completedSessions;
   }
 
-  Future<Map<String, dynamic>> _completeSessionData(
-    Map<String, dynamic> session,
-  ) async {
-    final Map<String, dynamic> result = Map<String, dynamic>.from(session);
-
+  Future<SessionMap> _completeSessionData(SessionMap session) async {
+    final SessionMap result = Map<String, dynamic>.from(session);
     final Map<String, dynamic> machine = _extractMap(session['machine']);
-
     result['machine'] = machine;
 
     final String sessionId = session['id']?.toString() ?? '';
-
     final int? machineId = int.tryParse(machine['id']?.toString() ?? '');
 
-    // Ambil detail sesi dan detail mesin secara bersamaan.
     final List<Future<void>> requests = [];
 
     if (sessionId.isNotEmpty) {
@@ -100,42 +94,23 @@ class _RefundsScreenState extends State<RefundsScreen> {
 
     await Future.wait(requests);
 
-    // Pastikan selalu terdapat nilai numerik.
     result['currentWeight'] = _toDouble(result['currentWeight']);
-
     result['totalPrice'] = _toDouble(result['totalPrice']);
 
     return result;
   }
 
-  // ============================================================
-  // FETCH SESSION DETAIL
-  // ============================================================
-
-  Future<void> _addSessionDetail(
-    Map<String, dynamic> target,
-    String sessionId,
-  ) async {
+  Future<void> _addSessionDetail(SessionMap target, String sessionId) async {
     try {
       final response = await http.get(
         Uri.parse(ApiConfig.getSessionDetail(sessionId)),
         headers: ApiConfig.headers,
       );
 
-      if (response.statusCode != 200) {
-        debugPrint(
-          'Detail sesi $sessionId gagal: '
-          '${response.statusCode}',
-        );
-
-        return;
-      }
+      if (response.statusCode != 200) return;
 
       final dynamic decoded = jsonDecode(response.body);
-
-      if (decoded is! Map<String, dynamic>) {
-        return;
-      }
+      if (decoded is! Map<String, dynamic>) return;
 
       final Map<String, dynamic> detail = decoded['data'] is Map
           ? Map<String, dynamic>.from(decoded['data'])
@@ -149,211 +124,123 @@ class _RefundsScreenState extends State<RefundsScreen> {
       double itemsPrice = 0;
 
       for (final dynamic rawItem in items) {
-        if (rawItem is! Map) {
-          continue;
-        }
-
+        if (rawItem is! Map) continue;
         final Map<String, dynamic> item = Map<String, dynamic>.from(rawItem);
-
         itemsWeight += _toDouble(item['weight']);
-
         itemsPrice += _toDouble(item['totalPrice']);
       }
 
       final Map<String, dynamic> summary = _extractMap(detail['summary']);
-
       final double summaryWeight = _toDouble(summary['currentWeight']);
-
       final double summaryPrice = _toDouble(summary['totalPrice']);
-
       final double historyWeight = _toDouble(target['currentWeight']);
-
       final double historyPrice = _toDouble(target['totalPrice']);
 
-      /*
-       * Prioritas nilai:
-       * 1. Hasil penjumlahan items.
-       * 2. Summary detail sesi.
-       * 3. Nilai dari daftar history.
-       */
       target['currentWeight'] = itemsWeight > 0
           ? itemsWeight
           : summaryWeight > 0
-          ? summaryWeight
-          : historyWeight;
+              ? summaryWeight
+              : historyWeight;
 
       target['totalPrice'] = itemsPrice > 0
           ? itemsPrice
           : summaryPrice > 0
-          ? summaryPrice
-          : historyPrice;
+              ? summaryPrice
+              : historyPrice;
 
-      if (detail['status'] != null) {
-        target['status'] = detail['status'];
-      }
-
-      if (detail['startedAt'] != null) {
-        target['startedAt'] = detail['startedAt'];
-      }
-
-      if (detail['endedAt'] != null) {
-        target['endedAt'] = detail['endedAt'];
-      }
+      if (detail['status'] != null) target['status'] = detail['status'];
+      if (detail['startedAt'] != null) target['startedAt'] = detail['startedAt'];
+      if (detail['endedAt'] != null) target['endedAt'] = detail['endedAt'];
 
       target['items'] = items;
     } catch (error) {
-      debugPrint(
-        'Gagal mengambil detail sesi '
-        '$sessionId: $error',
-      );
+      debugPrint('Gagal mengambil detail sesi $sessionId: $error');
     }
   }
 
-  // ============================================================
-  // FETCH MACHINE DETAIL
-  // ============================================================
-
-  Future<void> _addMachineDetail(
-    Map<String, dynamic> target,
-    int machineId,
-  ) async {
+  Future<void> _addMachineDetail(SessionMap target, int machineId) async {
     try {
       final response = await http.get(
         Uri.parse(ApiConfig.getMachineById(machineId)),
         headers: ApiConfig.headers,
       );
 
-      if (response.statusCode != 200) {
-        debugPrint(
-          'Detail mesin $machineId gagal: '
-          '${response.statusCode}',
-        );
-
-        return;
-      }
+      if (response.statusCode != 200) return;
 
       final dynamic decoded = jsonDecode(response.body);
-
-      if (decoded is! Map<String, dynamic>) {
-        return;
-      }
+      if (decoded is! Map<String, dynamic>) return;
 
       final Map<String, dynamic> machineDetail = decoded['data'] is Map
           ? Map<String, dynamic>.from(decoded['data'])
           : decoded;
 
       final Map<String, dynamic> oldMachine = _extractMap(target['machine']);
-
       target['machine'] = {...oldMachine, ...machineDetail};
     } catch (error) {
-      debugPrint(
-        'Gagal mengambil detail mesin '
-        '$machineId: $error',
-      );
+      debugPrint('Gagal mengambil detail mesin $machineId: $error');
     }
   }
 
   Map<String, dynamic> _extractMap(dynamic value) {
-    if (value is Map) {
-      return Map<String, dynamic>.from(value);
-    }
-
+    if (value is Map) return Map<String, dynamic>.from(value);
     return {};
   }
 
-  // ============================================================
-  // REFRESH
-  // ============================================================
-
   Future<void> _refreshSessions() async {
-    final Future<List<Map<String, dynamic>>> newFuture = _fetchSessions();
-
+    final Future<List<SessionMap>> newFuture = _fetchSessions();
     setState(() {
       _sessionsFuture = newFuture;
     });
-
     await newFuture;
   }
 
-  // ============================================================
-  // FORMAT DATA
-  // ============================================================
-
   double _toDouble(dynamic value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-
+    if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   String _formatDate(dynamic value) {
-    if (value == null || value.toString().trim().isEmpty) {
-      return '-';
-    }
-
+    if (value == null || value.toString().trim().isEmpty) return '-';
     try {
       final DateTime date = DateTime.parse(value.toString()).toLocal();
-
       return DateFormat('dd/MM/yyyy HH:mm').format(date);
     } catch (_) {
       return value.toString();
     }
   }
 
-  String _formatSessionDate(Map<String, dynamic> session) {
+  String _formatSessionDate(SessionMap session) {
     final dynamic dateValue = session['startedAt'] ?? session['createdAt'];
-
     return _formatDate(dateValue);
   }
 
-  String _getMachineName(Map<String, dynamic> session) {
+  String _getMachineName(SessionMap session) {
     final Map<String, dynamic> machine = _extractMap(session['machine']);
-
     final String name = machine['name']?.toString().trim() ?? '';
-
-    return name.isNotEmpty ? name : 'Mesin tidak diketahui';
+    return name.isNotEmpty ? name : 'Smart Container';
   }
 
-  String _getMachineCode(Map<String, dynamic> session) {
+  String _getMachineCode(SessionMap session) {
     final Map<String, dynamic> machine = _extractMap(session['machine']);
-
     final String machineCode = machine['machineCode']?.toString().trim() ?? '';
-
     return machineCode.isNotEmpty ? machineCode : '-';
   }
 
-  String _getMachineLocation(Map<String, dynamic> session) {
+  String _getMachineLocation(SessionMap session) {
     final Map<String, dynamic> machine = _extractMap(session['machine']);
-
     final String placeName = machine['placeName']?.toString().trim() ?? '';
-
     final String address = machine['address']?.toString().trim() ?? '';
-
     final String subdistrict = machine['subdistrict']?.toString().trim() ?? '';
-
     final String district = machine['district']?.toString().trim() ?? '';
 
     if (placeName.isNotEmpty && address.isNotEmpty) {
       return '$placeName, $address';
     }
+    if (address.isNotEmpty) return address;
+    if (placeName.isNotEmpty) return placeName;
 
-    if (address.isNotEmpty) {
-      return address;
-    }
-
-    if (placeName.isNotEmpty) {
-      return placeName;
-    }
-
-    final List<String> locationParts = [
-      subdistrict,
-      district,
-    ].where((value) => value.isNotEmpty).toList();
-
-    if (locationParts.isNotEmpty) {
-      return locationParts.join(', ');
-    }
+    final List<String> locationParts = [subdistrict, district].where((v) => v.isNotEmpty).toList();
+    if (locationParts.isNotEmpty) return locationParts.join(', ');
 
     return 'Lokasi tidak tersedia';
   }
@@ -362,19 +249,14 @@ class _RefundsScreenState extends State<RefundsScreen> {
     switch (status.toUpperCase()) {
       case 'ACTIVE':
         return 'Sedang Berlangsung';
-
       case 'WAITING_CONFIRMATION':
         return 'Menunggu Konfirmasi';
-
       case 'COMPLETED':
-        return 'Selesai';
-
+        return 'Selesai (Saldo Masuk)';
       case 'CANCELLED':
         return 'Dibatalkan';
-
       case 'EXPIRED':
         return 'Kedaluwarsa';
-
       default:
         return status;
     }
@@ -383,50 +265,42 @@ class _RefundsScreenState extends State<RefundsScreen> {
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
       case 'ACTIVE':
-        return const Color(0xFF1976D2);
-
+        return const Color(0xFF0284C7);
       case 'WAITING_CONFIRMATION':
-        return const Color(0xFFF57C00);
-
+        return const Color(0xFFD97706);
       case 'COMPLETED':
-        return const Color(0xFF2E7D32);
-
+        return ecoGreen;
       case 'CANCELLED':
       case 'EXPIRED':
-        return const Color(0xFFC62828);
-
+        return const Color(0xFFDC2626);
       default:
-        return const Color(0xFF757575);
+        return Colors.grey;
     }
   }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      backgroundColor: surfaceBg,
+      body: FutureBuilder<List<SessionMap>>(
         future: _sessionsFuture,
         builder: (context, snapshot) {
-          final List<Map<String, dynamic>> sessions = snapshot.data ?? [];
+          final List<SessionMap> sessions = snapshot.data ?? [];
 
           return RefreshIndicator(
             onRefresh: _refreshSessions,
+            color: textDark,
+            backgroundColor: brandYellow,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
                   _buildHeader(context, sessions),
-
-                  const SizedBox(height: 140),
-
+                  const SizedBox(height: 70),
                   if (snapshot.connectionState == ConnectionState.waiting)
                     const Padding(
                       padding: EdgeInsets.all(50),
-                      child: CircularProgressIndicator(),
+                      child: CircularProgressIndicator(color: primaryNavy),
                     )
                   else if (snapshot.hasError)
                     _buildErrorState(snapshot.error.toString())
@@ -434,8 +308,7 @@ class _RefundsScreenState extends State<RefundsScreen> {
                     _buildEmptyState()
                   else
                     _buildSessionList(sessions),
-
-                  const SizedBox(height: 50),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -450,17 +323,14 @@ class _RefundsScreenState extends State<RefundsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
       child: Column(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 50),
+          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
           const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.red),
-          ),
+          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 16),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: brandYellow, foregroundColor: textDark),
             onPressed: _refreshSessions,
-            child: const Text('Coba Lagi'),
+            child: const Text('Coba Lagi', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -473,37 +343,25 @@ class _RefundsScreenState extends State<RefundsScreen> {
       child: Column(
         children: [
           Icon(Icons.history_rounded, size: 60, color: Colors.grey),
-          SizedBox(height: 15),
+          SizedBox(height: 14),
           Text(
-            'Belum ada riwayat sesi.',
+            'Belum ada riwayat setoran Smart Container.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // SESSION LIST
-  // ============================================================
-
-  Widget _buildSessionList(List<Map<String, dynamic>> sessions) {
+  Widget _buildSessionList(List<SessionMap> sessions) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3)),
           ],
         ),
         child: Material(
@@ -512,19 +370,14 @@ class _RefundsScreenState extends State<RefundsScreen> {
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              _buildListHeader(),
-
+              _buildListHeader(sessions.length),
               ListView.separated(
                 padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
                 itemCount: sessions.length,
-                separatorBuilder: (context, index) {
-                  return const Divider(height: 1);
-                },
-                itemBuilder: (context, index) {
-                  return _buildSessionItem(sessions[index]);
-                },
+                separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                itemBuilder: (context, index) => _buildSessionItem(sessions[index]),
               ),
             ],
           ),
@@ -533,114 +386,100 @@ class _RefundsScreenState extends State<RefundsScreen> {
     );
   }
 
-  Widget _buildSessionItem(Map<String, dynamic> session) {
+  Widget _buildSessionItem(SessionMap session) {
     final String status = session['status']?.toString() ?? 'UNKNOWN';
-
     final Color statusColor = _statusColor(status);
-
     final double currentWeight = _toDouble(session['currentWeight']);
-
     final double totalPrice = _toDouble(session['totalPrice']);
-
     final String machineName = _getMachineName(session);
-
     final String machineCode = _getMachineCode(session);
-
     final String machineLocation = _getMachineLocation(session);
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         leading: Container(
-          width: 44,
-          height: 44,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
-            borderRadius: BorderRadius.circular(13),
+            color: brandYellow.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.recycling_rounded, color: Color(0xFF2E7D32)),
+          child: const Icon(Icons.inventory_2_rounded, color: textDark, size: 22),
         ),
         title: Text(
           machineName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textDark),
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: Text(
-            _formatSessionDate(session),
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              Text(_formatSessionDate(session), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              const Spacer(),
+              Text(
+                _currencyFormat.format(totalPrice),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: ecoGreen),
+              ),
+            ],
           ),
         ),
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.circular(15),
+              color: surfaceBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: Column(
               children: [
                 _detailRow(label: 'Kode Mesin', value: machineCode),
-
-                const Divider(height: 22),
-
-                _detailRow(label: 'Lokasi', value: machineLocation),
-
-                const Divider(height: 22),
-
+                const Divider(height: 18),
+                _detailRow(label: 'Lokasi Setor', value: machineLocation),
+                const Divider(height: 18),
                 _detailRow(
-                  label: 'Berat Sampah',
+                  label: 'Total Muatan',
                   value: '${currentWeight.toStringAsFixed(2)} kg',
                 ),
-
-                const Divider(height: 22),
-
+                const Divider(height: 18),
                 _detailRow(
-                  label: 'Pendapatan',
+                  label: 'Bagi Hasil Diterima',
                   value: _currencyFormat.format(totalPrice),
-                  valueColor: const Color(0xFF107569),
+                  valueColor: ecoGreen,
                 ),
-
-                const Divider(height: 22),
-
+                const Divider(height: 18),
                 _detailRow(
-                  label: 'Mulai',
-                  value: _formatDate(
-                    session['startedAt'] ?? session['createdAt'],
+                  label: 'Waktu Mulai',
+                  value: _formatDate(session['startedAt'] ?? session['createdAt']),
+                ),
+                if (session['endedAt'] != null) ...[
+                  const Divider(height: 18),
+                  _detailRow(
+                    label: 'Waktu Selesai',
+                    value: _formatDate(session['endedAt']),
                   ),
-                ),
-
-                const Divider(height: 22),
-
-                _detailRow(
-                  label: 'Selesai',
-                  value: _formatDate(session['endedAt']),
-                ),
-
-                const SizedBox(height: 14),
-
+                ],
+                const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 7,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       _statusLabel(status),
                       style: TextStyle(
                         color: statusColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -663,21 +502,18 @@ class _RefundsScreenState extends State<RefundsScreen> {
       children: [
         Expanded(
           flex: 4,
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
+          child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           flex: 6,
           child: Text(
             value,
             textAlign: TextAlign.right,
             style: TextStyle(
-              color: valueColor ?? const Color(0xFF263238),
+              color: valueColor ?? textDark,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -685,160 +521,141 @@ class _RefundsScreenState extends State<RefundsScreen> {
     );
   }
 
-  Widget _buildListHeader() {
+  Widget _buildListHeader(int count) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: const BoxDecoration(color: Color(0xFFFFD966)),
-      child: const Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: const BoxDecoration(color: textDark),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(Icons.history_rounded, color: Colors.white, size: 24),
-          SizedBox(width: 12),
+          Row(
+            children: const [
+              Icon(Icons.receipt_long_rounded, color: brandYellow, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Daftar Transaksi Setoran',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ],
+          ),
           Text(
-            'Riwayat Sesi',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
+            '$count Sesi',
+            style: const TextStyle(color: brandYellow, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // HEADER
-  // ============================================================
-
-  Widget _buildHeader(
-    BuildContext context,
-    List<Map<String, dynamic>> sessions,
-  ) {
+  Widget _buildHeader(BuildContext context, List<SessionMap> sessions) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 300,
+          height: 250,
           width: double.infinity,
           decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFEA2E),
+                brandYellow,
+                Color(0xFFFFDF00),
+              ],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
             ),
           ),
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.only(top: 25, left: 20),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Back',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: textDark),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Text(
+                      'Riwayat Setor Sampah',
+                      style: TextStyle(color: textDark, fontSize: 20, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-
         Positioned(
-          bottom: -110,
-          left: 15,
-          right: 15,
+          bottom: -50,
+          left: 18,
+          right: 18,
           child: _buildSummaryCard(sessions),
         ),
       ],
     );
   }
 
-  Widget _buildSummaryCard(List<Map<String, dynamic>> sessions) {
+  Widget _buildSummaryCard(List<SessionMap> sessions) {
     final int totalSessions = sessions.length;
-
     final double totalWeight = sessions.fold<double>(0, (total, session) {
       return total + _toDouble(session['currentWeight']);
     });
-
     final double totalEarnings = sessions.fold<double>(0, (total, session) {
       return total + _toDouble(session['totalPrice']);
     });
 
-    return Card(
-      elevation: 10,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Image.asset('assets/icons/mingcute.png', width: 45, height: 45),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Session History',
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Image.asset('assets/icons/share.png', width: 42, height: 42),
-              ],
-            ),
-
-            const SizedBox(height: 25),
-
-            Row(
-              children: [
-                _buildInfoBox(
-                  'Total Sesi',
-                  totalSessions.toString(),
-                  const Color(0xFFE6F9E6),
-                ),
-
-                const SizedBox(width: 10),
-
-                _buildInfoBox(
-                  'Total Berat',
-                  '${totalWeight.toStringAsFixed(2)} kg',
-                  const Color(0xFFE6F2FA),
-                ),
-
-                const SizedBox(width: 10),
-
-                _buildInfoBox(
-                  'Pendapatan',
-                  _currencyFormat.format(totalEarnings),
-                  const Color(0xFFFFF9E6),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD4A000).withOpacity(0.14),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text('Akumulasi Kontribusi', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                  Text('Setoran Smart Container', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textDark)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: brandYellow.withOpacity(0.3), shape: BoxShape.circle),
+                child: const Icon(Icons.insights_rounded, color: textDark, size: 20),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildInfoBox('Total Sesi', '$totalSessions kali', const Color(0xFFF1F5F9)),
+              const SizedBox(width: 8),
+              _buildInfoBox('Total Muatan', '${totalWeight.toStringAsFixed(1)} kg', const Color(0xFFFEF3C7)),
+              const SizedBox(width: 8),
+              _buildInfoBox('Bagi Hasil', _currencyFormat.format(totalEarnings), const Color(0xFFDCFCE7)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -846,11 +663,11 @@ class _RefundsScreenState extends State<RefundsScreen> {
   Widget _buildInfoBox(String title, String value, Color color) {
     return Expanded(
       child: Container(
-        height: 74,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        height: 68,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -860,24 +677,15 @@ class _RefundsScreenState extends State<RefundsScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10,
-                color: Colors.black54,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.w600),
             ),
-
-            const SizedBox(height: 6),
-
+            const SizedBox(height: 4),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 value,
                 maxLines: 1,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: textDark),
               ),
             ),
           ],

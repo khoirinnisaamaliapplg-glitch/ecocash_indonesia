@@ -13,7 +13,13 @@ class RiwayatPickupPage extends StatefulWidget {
 }
 
 class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTickerProviderStateMixin {
-  final Color primary = const Color(0xff0BCFD1);
+  // Tema Warna Kuning Gojek EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   bool _isLoading = true;
   List<dynamic> _allOrders = [];
   String _activeFilter = 'SEMUA'; // 'SEMUA', 'PROSES', 'SELESAI', 'BATAL'
@@ -42,7 +48,6 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
         final decoded = jsonDecode(res.body);
         final List rawList = decoded['data'] is List ? decoded['data'] : [];
 
-        // Jangan buang order yang memiliki kontainer tujuan!
         final filteredList = rawList.where((item) {
           final String title = (item['title'] ?? '').toString().toLowerCase();
           if (title.contains('pengosongan container') || title.contains('kuras container')) {
@@ -81,20 +86,20 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
       case 'AVAILABLE':
-        return Colors.orange;
+        return const Color(0xFFD97706);
       case 'ACCEPTED':
       case 'ON_THE_WAY':
-        return Colors.blue;
+        return const Color(0xFF0284C7);
       case 'CHECKED_IN':
       case 'PICKUP':
-        return Colors.purple;
+        return const Color(0xFF9333EA);
       case 'IN_TRANSIT':
       case 'HANDOVER':
-        return Colors.indigo;
+        return const Color(0xFF4F46E5);
       case 'COMPLETED':
-        return Colors.green;
+        return ecoGreen;
       case 'CANCELLED':
-        return Colors.red;
+        return const Color(0xFFDC2626);
       default:
         return Colors.grey;
     }
@@ -164,16 +169,16 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8F3),
+      backgroundColor: surfaceBg,
       appBar: AppBar(
-        backgroundColor: primary,
+        backgroundColor: brandYellow,
         elevation: 0,
         title: const Text(
           'Riwayat Jemput Sampah',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 18),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: textDark),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -183,9 +188,10 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchPickupHistory,
-              color: primary,
+              color: textDark,
+              backgroundColor: brandYellow,
               child: _isLoading
-                  ? Center(child: CircularProgressIndicator(color: primary))
+                  ? const Center(child: CircularProgressIndicator(color: primaryNavy))
                   : _displayedOrders.isEmpty
                       ? ListView(
                           children: [
@@ -258,16 +264,16 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? primary : const Color(0xFFF4F6F8),
+          color: isSelected ? textDark : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? primary : Colors.grey.shade300),
+          border: Border.all(color: isSelected ? textDark : Colors.grey.shade300),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: isSelected ? brandYellow : Colors.black87,
           ),
         ),
       ),
@@ -304,9 +310,9 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -336,31 +342,39 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.home_outlined, size: 18, color: Colors.teal),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.home_rounded, size: 16, color: Color(0xFFD97706)),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Titik Jemput Warga', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                    Text(cleanAddress, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(cleanAddress, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark), maxLines: 2, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.inventory_2_outlined, size: 18, color: Color(0xFF0F2C59)),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.inventory_2_rounded, size: 16, color: ecoGreen),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +382,7 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
                     const Text('Tujuan Kontainer / Setor', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
                     Text(
                       '$targetContainer ${targetContainerArea.isNotEmpty ? "($targetContainerArea)" : ""}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: ecoGreen),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -388,7 +402,7 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
                 children: [
                   const Text('Total Muatan', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   const SizedBox(height: 2),
-                  Text('${weight.toStringAsFixed(1)} Kg', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  Text('${weight.toStringAsFixed(1)} Kg', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textDark)),
                 ],
               ),
               Column(
@@ -400,8 +414,8 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
                     _currencyFormat.format(citizenEarning),
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isCompleted ? Colors.green : primary,
+                      fontWeight: FontWeight.w900,
+                      color: isCompleted ? ecoGreen : primaryNavy,
                     ),
                   ),
                 ],
@@ -411,29 +425,28 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
 
           const SizedBox(height: 12),
 
-          // SEKSI DRIVER / CHAT / KOMPLAIN:
-          // Tetap tampil baik saat jalan maupun saat SELESAI
+          // SEKSI DRIVER / CHAT / KOMPLAIN
           if (partnerName != null) ...[
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F6F8),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.teal.shade100),
+                border: Border.all(color: Colors.grey.shade200),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 16,
-                    backgroundColor: Colors.teal.shade100,
-                    child: const Icon(Icons.two_wheeler, size: 18, color: Color(0xFF0F2C59)),
+                    backgroundColor: brandYellow,
+                    child: const Icon(Icons.two_wheeler, size: 18, color: textDark),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Kurir: $partnerName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text('Kurir: $partnerName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark)),
                         Text(vehicleInfo ?? 'Driver EcoCash Partner', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                       ],
                     ),
@@ -453,16 +466,16 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
                         ),
                       );
                     },
-                    icon: const Icon(Icons.chat_bubble_outline, size: 14, color: Colors.white),
+                    icon: const Icon(Icons.chat_bubble_outline, size: 14, color: textDark),
                     label: Text(
-                      isCompleted ? 'Riwayat Chat & Komplain' : 'Chat Kurir',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      isCompleted ? 'Chat & Komplain' : 'Chat Kurir',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isCompleted ? const Color(0xFF0F2C59) : primary,
+                      backgroundColor: brandYellow,
+                      elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 0,
                     ),
                   ),
                 ],
@@ -472,17 +485,17 @@ class _RiwayatPickupPageState extends State<RiwayatPickupPage> with SingleTicker
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.hourglass_top, size: 16, color: Colors.orange),
+              child: Row(
+                children: const [
+                  Icon(Icons.hourglass_top, size: 16, color: Color(0xFFD97706)),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Sistem sedang memanggil armada kurir terdekat ke rumah Anda...',
-                      style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],

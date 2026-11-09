@@ -15,6 +15,11 @@ class ConfirmationPage extends StatefulWidget {
 }
 
 class _ConfirmationPageState extends State<ConfirmationPage> {
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   int _quantity = 1;
   bool _isLoading = false;
   bool _isLoadingAddress = true;
@@ -68,7 +73,7 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
   }
 
   void _changeAddress() async {
-    final selected = await Navigator.push(
+    final dynamic selected = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const DaftarAlamatPage(isSelecting: true),
@@ -131,7 +136,7 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Pesanan berhasil dibuat dengan saldo EcoCash!"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Pesanan berhasil dibuat dengan saldo EcoCash!"), backgroundColor: ecoGreen),
         );
       } else {
         if (!mounted) return;
@@ -160,17 +165,17 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
     final subtotal = price * _quantity;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: surfaceBg,
       body: Column(
         children: [
           _buildHeaderSection(context),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 110, 20, 20),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 children: [
                   _buildAddressSection(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   _buildSummaryCard(price, subtotal),
                 ],
               ),
@@ -183,41 +188,34 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
   }
 
   Widget _buildHeaderSection(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: brandYellow,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back, color: textDark),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 8),
               const Text(
                 'Konfirmasi Pembelian',
-                style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold),
+                style: TextStyle(color: textDark, fontSize: 20, fontWeight: FontWeight.w900),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -226,9 +224,9 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -239,25 +237,25 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.location_on, color: Color(0xFF2E7D32), size: 20),
-                  SizedBox(width: 6),
-                  Text('Alamat Tujuan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Icon(Icons.location_on_rounded, color: Color(0xFFD97706), size: 20),
+                  SizedBox(width: 8),
+                  Text('Alamat Tujuan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textDark)),
                 ],
               ),
               InkWell(
                 onTap: _changeAddress,
-                child: const Text('Ganti', style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 12)),
+                child: const Text('Ganti', style: TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 12)),
               ),
             ],
           ),
           const Divider(height: 18),
           _isLoadingAddress
-              ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(strokeWidth: 2)))
+              ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(strokeWidth: 2, color: textDark)))
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_addressLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 4),
+                    Text(_addressLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark)),
+                    const SizedBox(height: 3),
                     Text(_addressDetail, style: const TextStyle(color: Colors.black54, fontSize: 12)),
                   ],
                 ),
@@ -271,35 +269,35 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Rincian Pesanan", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const Divider(height: 24),
+          const Text("Rincian Pesanan", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textDark)),
+          const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
                   widget.product['name'] ?? 'Produk Daur Ulang',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, size: 20),
+                    icon: const Icon(Icons.remove_circle_outline, size: 20, color: textDark),
                     onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
                   ),
                   Text("$_quantity", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                    icon: const Icon(Icons.add_circle_outline, size: 20, color: textDark),
                     onPressed: () => setState(() => _quantity++),
                   ),
                 ],
@@ -310,26 +308,26 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Harga Satuan", style: TextStyle(color: Colors.black54, fontSize: 13)),
-              Text("Rp ${_rupiah(price)}", style: const TextStyle(fontSize: 13)),
+              const Text("Harga Satuan", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
+              Text("Rp ${_rupiah(price)}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textDark)),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text("Metode Pembayaran", style: TextStyle(color: Colors.black54, fontSize: 13)),
-              Text("EcoCash Wallet", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), fontSize: 13)),
+              Text("Metode Pembayaran", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
+              Text("EcoCash Wallet", style: TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 13)),
             ],
           ),
-          const Divider(height: 24),
+          const Divider(height: 22),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Total Pembayaran", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text("Total Pembayaran", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textDark)),
               Text(
                 "Rp ${_rupiah(subtotal)}",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF2E7D32)),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: ecoGreen),
               ),
             ],
           ),
@@ -340,25 +338,26 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
 
   Widget _buildBottomPayBar(double subtotal) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       color: Colors.white,
       child: SafeArea(
         top: false,
         child: SizedBox(
           width: double.infinity,
-          height: 52,
+          height: 48,
           child: ElevatedButton(
             onPressed: _isLoading ? null : () => _confirmOrder(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: brandYellow,
+              foregroundColor: textDark,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
             child: _isLoading
-                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: textDark, strokeWidth: 2))
                 : Text(
                     "Bayar Rp ${_rupiah(subtotal)}",
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                   ),
           ),
         ),

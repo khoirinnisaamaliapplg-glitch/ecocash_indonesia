@@ -12,6 +12,12 @@ class DetailMaps extends StatefulWidget {
 }
 
 class _DetailMapsState extends State<DetailMaps> {
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+
   String get _name => widget.machine['name']?.toString() ?? 'Tanpa Nama';
   String get _machineCode => widget.machine['machineCode']?.toString() ?? '-';
   String get _machineType => widget.machine['machineType']?.toString() ?? 'CONTAINER';
@@ -66,11 +72,11 @@ class _DetailMapsState extends State<DetailMaps> {
   Color get _statusColor {
     switch (_status) {
       case 'OPERATING':
-        return const Color(0xFF2E7D32);
+        return ecoGreen;
       case 'MAINTENANCE':
-        return const Color(0xFFF57C00);
+        return const Color(0xFFD97706);
       case 'BROKEN':
-        return const Color(0xFFC62828);
+        return const Color(0xFFDC2626);
       default:
         return const Color(0xFF757575);
     }
@@ -98,16 +104,16 @@ class _DetailMapsState extends State<DetailMaps> {
   Color get _capacityColor {
     switch (_fillLevel) {
       case 'FULL':
-        return const Color(0xFFC62828);
+        return const Color(0xFFDC2626);
       case 'HIGH':
-        return const Color(0xFFEF6C00);
+        return const Color(0xFFEA580C);
       case 'HALF':
       case 'MEDIUM':
-        return const Color(0xFFF9A825);
+        return const Color(0xFFD97706);
       case 'LOW':
-        return const Color(0xFF43A047);
+        return const Color(0xFF16A34A);
       case 'EMPTY':
-        return const Color(0xFF2E7D32);
+        return ecoGreen;
       default:
         return const Color(0xFF757575);
     }
@@ -162,50 +168,50 @@ class _DetailMapsState extends State<DetailMaps> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 35),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (_isFull) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: const Color(0xFFFECACA)),
               ),
               child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
-                  const SizedBox(width: 8),
+                children: const [
+                  Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Kontainer ini sudah penuh. Petugas kurir sedang dijadwalkan untuk pengosongan muatan.',
-                      style: TextStyle(color: Colors.red.shade800, fontSize: 11, height: 1.3),
+                      style: TextStyle(color: Color(0xFF991B1B), fontSize: 11, height: 1.3, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
           ],
           _buildLocationCard(),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _buildNavigateButton(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           const Text(
             'Informasi Mesin',
             style: TextStyle(
-              color: Color(0xFF1A2E35),
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
+              color: textDark,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildMachineInformation(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           _buildCapacitySection(),
         ],
       ),
@@ -217,16 +223,16 @@ class _DetailMapsState extends State<DetailMaps> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
-            borderRadius: BorderRadius.circular(16),
+            color: brandYellow.withOpacity(0.35),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
-            Icons.recycling_rounded,
-            color: Color(0xFF4DB67D),
-            size: 30,
+            Icons.inventory_2_rounded,
+            color: textDark,
+            size: 26,
           ),
         ),
         const SizedBox(width: 12),
@@ -239,29 +245,29 @@ class _DetailMapsState extends State<DetailMaps> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF1A2E35),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  color: textDark,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, size: 8, color: _statusColor),
-                    const SizedBox(width: 6),
+                    Icon(Icons.circle, size: 7, color: _statusColor),
+                    const SizedBox(width: 5),
                     Text(
                       _status,
                       style: TextStyle(
                         color: _statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -273,7 +279,7 @@ class _DetailMapsState extends State<DetailMaps> {
         IconButton(
           onPressed: widget.onBack,
           tooltip: 'Tutup detail',
-          icon: const Icon(Icons.close_rounded, color: Color(0xFF757575)),
+          icon: const Icon(Icons.close_rounded, color: Colors.grey),
         ),
       ],
     );
@@ -282,21 +288,22 @@ class _DetailMapsState extends State<DetailMaps> {
   Widget _buildLocationCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F8FA),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
           _infoRow(
-            icon: Icons.location_on_outlined,
-            label: 'Alamat',
+            icon: Icons.location_on_rounded,
+            label: 'Alamat Kontainer',
             value: _address,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _infoRow(
-            icon: Icons.route_outlined,
+            icon: Icons.route_rounded,
             label: 'Jarak dari lokasi Anda',
             value: '${_distanceInKm.toStringAsFixed(2)} km',
           ),
@@ -311,14 +318,14 @@ class _DetailMapsState extends State<DetailMaps> {
       height: 48,
       child: ElevatedButton.icon(
         onPressed: _coordinatesAvailable ? _openGoogleMaps : null,
-        icon: const Icon(Icons.navigation_rounded, size: 20),
+        icon: const Icon(Icons.navigation_rounded, size: 18),
         label: const Text(
-          'Navigasi dengan Google Maps',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          'Buka Rute di Google Maps',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4285F4),
-          foregroundColor: Colors.white,
+          backgroundColor: textDark,
+          foregroundColor: brandYellow,
           disabledBackgroundColor: Colors.grey.shade300,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -336,24 +343,24 @@ class _DetailMapsState extends State<DetailMaps> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFE8ECEF)),
+        border: Border.all(color: Colors.grey.shade200),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           _detailRow(label: 'Kode mesin', value: _machineCode),
-          const Divider(height: 20),
+          const Divider(height: 18),
           _detailRow(label: 'Tipe mesin', value: _machineType),
-          const Divider(height: 20),
+          const Divider(height: 18),
           _detailRow(label: 'Status mesin', value: _status),
-          const Divider(height: 20),
+          const Divider(height: 18),
           _detailRow(label: 'Tingkat keterisian', value: _fillLevel),
-          const Divider(height: 20),
+          const Divider(height: 18),
           _detailRow(label: 'Wilayah / Area', value: '$_district, $_subdistrict'),
-          const Divider(height: 20),
+          const Divider(height: 18),
           _detailRow(label: 'Koordinat Spasial', value: coordinates),
         ],
       ),
@@ -364,24 +371,24 @@ class _DetailMapsState extends State<DetailMaps> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF4DB67D),
-        borderRadius: BorderRadius.circular(20),
+        color: textDark,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.all(14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
-              children: [
-                Icon(Icons.inventory_2_outlined, color: Colors.white, size: 20),
+              children: const [
+                Icon(Icons.inventory_2_outlined, color: brandYellow, size: 18),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Kapasitas Smart Container',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -392,8 +399,8 @@ class _DetailMapsState extends State<DetailMaps> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: const BoxDecoration(
-              color: Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
             ),
             child: Column(
               children: [
@@ -420,13 +427,14 @@ class _DetailMapsState extends State<DetailMaps> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
                     children: [
@@ -436,7 +444,7 @@ class _DetailMapsState extends State<DetailMaps> {
                           value: '${_currentWeight.toStringAsFixed(1)} kg',
                         ),
                       ),
-                      Container(width: 1, height: 32, color: const Color(0xFFECEFF1)),
+                      Container(width: 1, height: 28, color: Colors.grey.shade300),
                       Expanded(
                         child: _weightInformation(
                           label: 'Kapasitas Maksimal',
@@ -465,35 +473,29 @@ class _DetailMapsState extends State<DetailMaps> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF26A69A), size: 18),
+              Icon(icon, color: textDark, size: 16),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   title,
                   style: const TextStyle(
-                    color: Color(0xFF455A64),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
@@ -501,10 +503,10 @@ class _DetailMapsState extends State<DetailMaps> {
             style: TextStyle(
               color: color,
               fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           LinearProgressIndicator(
             value: progress.clamp(0.0, 1.0),
             minHeight: 5,
@@ -523,16 +525,16 @@ class _DetailMapsState extends State<DetailMaps> {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 11),
+          style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         Text(
           value,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Color(0xFF263238),
+            color: textDark,
             fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ],
@@ -547,7 +549,7 @@ class _DetailMapsState extends State<DetailMaps> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF26A69A), size: 20),
+        Icon(icon, color: textDark, size: 18),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -555,13 +557,13 @@ class _DetailMapsState extends State<DetailMaps> {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 11),
+                style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
                 style: const TextStyle(
-                  color: Color(0xFF455A64),
+                  color: textDark,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -581,7 +583,7 @@ class _DetailMapsState extends State<DetailMaps> {
           flex: 4,
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFF757575), fontSize: 12),
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ),
         const SizedBox(width: 10),
@@ -591,9 +593,9 @@ class _DetailMapsState extends State<DetailMaps> {
             value,
             textAlign: TextAlign.right,
             style: const TextStyle(
-              color: Color(0xFF263238),
+              color: textDark,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),

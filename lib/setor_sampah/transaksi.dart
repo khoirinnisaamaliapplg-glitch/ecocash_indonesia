@@ -7,6 +7,10 @@ class TransaksiBerhasilScreen extends StatelessWidget {
 
   const TransaksiBerhasilScreen({super.key, this.detailTransaksi});
 
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color ecoGreen = Color(0xFF00AA13);
+
   String _formatNumber(dynamic val) {
     if (val == null) return '0';
     final n = double.tryParse(val.toString()) ?? 0;
@@ -27,7 +31,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
     final String machineName = data['machineName']?.toString() ?? 'Smart Container';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF7F8FA),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -37,9 +41,9 @@ class TransaksiBerhasilScreen extends StatelessWidget {
               children: [
                 _buildHeader(context),
                 Positioned(
-                  top: 130,
-                  left: 20,
-                  right: 20,
+                  top: 110,
+                  left: 18,
+                  right: 18,
                   child: _buildSuccessCard(items, earned, balance, sessionId, totalWeight, machineName),
                 ),
               ],
@@ -54,19 +58,16 @@ class TransaksiBerhasilScreen extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      height: 250,
+      height: 220,
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: Color(0xFF4CAF50),
-        image: DecorationImage(
-          image: AssetImage('assets/bg.png'),
-          fit: BoxFit.cover,
-        ),
+        color: brandYellow,
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
       ),
-      padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
+      padding: const EdgeInsets.only(top: 50, left: 20, right: 20),
       child: const Text(
         'Bukti Setor Sampah',
-        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+        style: TextStyle(color: textDark, fontSize: 22, fontWeight: FontWeight.w900),
       ),
     );
   }
@@ -85,7 +86,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 6)),
         ],
       ),
       child: Column(
@@ -93,46 +94,44 @@ class TransaksiBerhasilScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              Text('Transaksi Berhasil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Setor Sampah Berhasil!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark)),
               SizedBox(width: 8),
-              Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 24),
+              Icon(Icons.check_circle, color: ecoGreen, size: 22),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Saldo hasil setoran telah masuk ke dompet Anda.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
-          // Banner Komisi Masuk
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
+              color: const Color(0xFFDCFCE7),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               children: [
-                const Text('Saldo Diterima', style: TextStyle(fontSize: 12, color: Color(0xFF2E7D32))),
+                const Text('Saldo Diterima', style: TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(
                   '+Rp ${_formatNumber(earned)}',
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1B5E20)),
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF14532D)),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  'Saldo Dompet Saat Ini: Rp ${_formatNumber(balance)}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF388E3C)),
+                  'Saldo Dompet Sekarang: Rp ${_formatNumber(balance)}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
-          // Detail Rincian Sampah
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -144,7 +143,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Lokasi: $machineName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text('Lokasi: $machineName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textDark)),
                     Text('ID Sesi: #$idSesi', style: const TextStyle(color: Colors.grey, fontSize: 11)),
                   ],
                 ),
@@ -160,15 +159,13 @@ class TransaksiBerhasilScreen extends StatelessWidget {
                       final price = item['totalPrice'] ?? '0';
 
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
-                            const Icon(Icons.recycling, size: 18, color: Colors.green),
+                            const Icon(Icons.recycling, size: 16, color: ecoGreen),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: Text('$name ($weight kg)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                            ),
-                            Text('Rp ${_formatNumber(price)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            Expanded(child: Text('$name ($weight kg)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                            Text('Rp ${_formatNumber(price)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: textDark)),
                           ],
                         ),
                       );
@@ -180,7 +177,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Total Muatan Bersih', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Text('$totalWeight Kg', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text('$totalWeight Kg', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: textDark)),
                   ],
                 ),
               ],
@@ -194,7 +191,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
   Widget _buildBottomActions(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 25),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -207,12 +204,13 @@ class TransaksiBerhasilScreen extends StatelessWidget {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF388E3C),
-              minimumSize: const Size(double.infinity, 50),
+              backgroundColor: brandYellow,
+              foregroundColor: textDark,
+              minimumSize: const Size(double.infinity, 48),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
-            child: const Text('Kembali ke Beranda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+            child: const Text('Kembali ke Beranda', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
@@ -224,11 +222,11 @@ class TransaksiBerhasilScreen extends StatelessWidget {
               );
             },
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF4CAF50)),
-              minimumSize: const Size(double.infinity, 48),
+              side: const BorderSide(color: textDark),
+              minimumSize: const Size(double.infinity, 46),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            child: const Text('Setor Sampah Lagi', style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.bold, fontSize: 14)),
+            child: const Text('Setor Sampah Lagi', style: TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ],
       ),

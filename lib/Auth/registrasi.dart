@@ -14,6 +14,10 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+
   // ============================================================
   // CONTROLLER
   // ============================================================
@@ -284,6 +288,14 @@ class _RegisterPageState extends State<RegisterPage> {
                 borderRadius: BorderRadius.circular(10),
               ),
 
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: textDark,
+                  width: 1.5,
+                ),
+              ),
+
               suffixIcon: isPassword
                   ? IconButton(
                       icon: Icon(
@@ -430,7 +442,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _register,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
+                        backgroundColor: brandYellow,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -441,13 +454,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: Colors.white,
+                                color: textDark,
                               ),
                             )
                           : const Text(
                               'Buat Akun',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: textDark,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),

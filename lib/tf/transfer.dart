@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../ipconfig.dart';
 
+// Alias tipe agar kebal error copy-paste kurung siku generik
+typedef WalletDataMap = Map<String, dynamic>;
+
 class TransferPage extends StatefulWidget {
   const TransferPage({super.key});
 
@@ -13,7 +16,14 @@ class TransferPage extends StatefulWidget {
 }
 
 class _TransferPageState extends State<TransferPage> {
-  final Color primary = const Color(0xff0BCFD1);
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color brandYellowDark = Color(0xFFF5D000);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   static const double adminFee = 2500.0;
 
   bool _isLoadingWallet = true;
@@ -141,20 +151,27 @@ class _TransferPageState extends State<TransferPage> {
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green, size: 28),
-                SizedBox(width: 8),
-                Text("Penarikan Berhasil!"),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: const [
+                Icon(Icons.check_circle_rounded, color: ecoGreen, size: 28),
+                SizedBox(width: 10),
+                Text("Penarikan Berhasil!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textDark)),
               ],
             ),
             content: Text(
               "Pencairan dana ${_currencyFormat.format(amount)} ke $_selectedProvider (${_accountNumberController.text.trim()}) sedang diproses.\n\nBiaya Admin: Rp 2.500\nSisa Saldo: ${_currencyFormat.format(data['data']?['balanceAfter'] ?? (_balance - totalRequired))}",
+              style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
             ),
             actions: [
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: primary),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: brandYellow,
+                  foregroundColor: textDark,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _amountController.clear();
@@ -162,7 +179,7 @@ class _TransferPageState extends State<TransferPage> {
                   _accountHolderController.clear();
                   _fetchWalletBalance();
                 },
-                child: const Text("Selesai", style: TextStyle(color: Colors.white)),
+                child: const Text("Selesai", style: TextStyle(fontWeight: FontWeight.w900)),
               ),
             ],
           ),
@@ -187,93 +204,106 @@ class _TransferPageState extends State<TransferPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, scrollController) {
-            return FutureBuilder<http.Response>(
-              future: http.get(Uri.parse(ApiConfig.getMyWalletTransactions), headers: ApiConfig.headers),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            minChildSize: 0.4,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (_, scrollController) {
+              return FutureBuilder<http.Response>(
+                future: http.get(Uri.parse(ApiConfig.getMyWalletTransactions), headers: ApiConfig.headers),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: primaryNavy));
+                  }
 
-                if (!snapshot.hasData || snapshot.data!.statusCode != 200) {
-                  return const Center(child: Text("Gagal memuat mutasi dompet"));
-                }
+                  if (!snapshot.hasData || snapshot.data!.statusCode != 200) {
+                    return const Center(child: Text("Gagal memuat mutasi dompet"));
+                  }
 
-                final decoded = jsonDecode(snapshot.data!.body);
-                final List items = decoded['data'] is List ? decoded['data'] : [];
+                  final decoded = jsonDecode(snapshot.data!.body);
+                  final List items = decoded['data'] is List ? decoded['data'] : [];
 
-                if (items.isEmpty) {
-                  return const Center(child: Text("Belum ada riwayat transaksi"));
-                }
+                  if (items.isEmpty) {
+                    return const Center(child: Text("Belum ada riwayat transaksi", style: TextStyle(color: Colors.grey)));
+                  }
 
-                return Column(
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      child: Row(
-                        children: [
-                          Icon(Icons.receipt_long, color: Colors.teal),
-                          SizedBox(width: 8),
-                          Text("Mutasi Saldo Dompet", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ],
+                  return Column(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 10),
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
                       ),
-                    ),
-                    const Divider(),
-                    Expanded(
-                      child: ListView.separated(
-                        controller: scrollController,
-                        itemCount: items.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final tx = items[i];
-                          final isDeposit = tx['type'] == 'DEPOSIT';
-                          final double amt = (tx['amount'] is num) ? (tx['amount'] as num).toDouble() : 0.0;
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: isDeposit ? Colors.green.shade50 : Colors.red.shade50,
-                              child: Icon(
-                                isDeposit ? Icons.arrow_downward : Icons.arrow_upward,
-                                color: isDeposit ? Colors.green : Colors.red,
-                                size: 18,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: brandYellow.withOpacity(0.35),
+                                borderRadius: BorderRadius.circular(10),
                               ),
+                              child: const Icon(Icons.receipt_long_rounded, color: textDark, size: 20),
                             ),
-                            title: Text(tx['description'] ?? 'Transaksi Dompet', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            subtitle: Text(
-                              tx['createdAt'] != null ? DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(tx['createdAt']).toLocal()) : '-',
-                              style: const TextStyle(fontSize: 10, color: Colors.grey),
-                            ),
-                            trailing: Text(
-                              "${isDeposit ? '+' : '-'}${_currencyFormat.format(amt)}",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDeposit ? Colors.green : Colors.red,
-                                fontSize: 13,
-                              ),
-                            ),
-                          );
-                        },
+                            const SizedBox(width: 10),
+                            const Text("Mutasi Saldo Dompet", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textDark)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView.separated(
+                          controller: scrollController,
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          itemBuilder: (context, i) {
+                            final tx = items[i];
+                            final isDeposit = tx['type'] == 'DEPOSIT';
+                            final double amt = (tx['amount'] is num) ? (tx['amount'] as num).toDouble() : 0.0;
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                              leading: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: isDeposit ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                                child: Icon(
+                                  isDeposit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                  color: isDeposit ? ecoGreen : const Color(0xFFDC2626),
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(tx['description'] ?? 'Transaksi Dompet', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textDark)),
+                              subtitle: Text(
+                                tx['createdAt'] != null ? DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(tx['createdAt']).toLocal()) : '-',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                              trailing: Text(
+                                "${isDeposit ? '+' : '-'}${_currencyFormat.format(amt)}",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: isDeposit ? ecoGreen : const Color(0xFFDC2626),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );
@@ -282,12 +312,12 @@ class _TransferPageState extends State<TransferPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: surfaceBg,
       body: SingleChildScrollView(
         child: Column(
           children: [
             _buildHeader(context),
-            const SizedBox(height: 110),
+            const SizedBox(height: 70),
             _buildWithdrawalForm(),
             const SizedBox(height: 30),
           ],
@@ -302,52 +332,59 @@ class _TransferPageState extends State<TransferPage> {
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 280,
+          height: 250,
           width: double.infinity,
           decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFEA2E),
+                brandYellow,
+                Color(0xFFFFDF00),
+              ],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
             ),
           ),
-          padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
+          padding: const EdgeInsets.only(top: 50, left: 16, right: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                    ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: textDark),
                   ),
-                  const SizedBox(width: 15),
-                  const Text(
-                    'Pencairan Dana',
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Pencairan Dana',
+                      style: TextStyle(color: textDark, fontSize: 21, fontWeight: FontWeight.w900),
+                    ),
                   ),
                 ],
               ),
               InkWell(
                 onTap: _showTransactionHistoryDialog,
+                borderRadius: BorderRadius.circular(20),
                 child: Container(
+                  margin: const EdgeInsets.only(top: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(30),
+                    color: textDark,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
-                    children: [
-                      Image.asset('assets/icons/riwayat.png', width: 18, height: 18),
-                      const SizedBox(width: 6),
-                      const Text('Mutasi', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    children: const [
+                      Icon(Icons.history_rounded, color: brandYellow, size: 16),
+                      SizedBox(width: 6),
+                      Text('Mutasi', style: TextStyle(color: brandYellow, fontSize: 12, fontWeight: FontWeight.w900)),
                     ],
                   ),
                 ),
@@ -355,7 +392,7 @@ class _TransferPageState extends State<TransferPage> {
             ],
           ),
         ),
-        Positioned(top: 150, left: 20, right: 20, child: _buildBalanceCard()),
+        Positioned(top: 130, left: 18, right: 18, child: _buildBalanceCard()),
       ],
     );
   }
@@ -365,44 +402,64 @@ class _TransferPageState extends State<TransferPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: const Color(0xFFD4A000).withOpacity(0.14),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Saldo yang Bisa Ditarik', style: TextStyle(fontSize: 13, color: Colors.grey)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Saldo yang Bisa Dicairkan', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Tersedia', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           _isLoadingWallet
-              ? const SizedBox(height: 28, width: 28, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(height: 28, width: 28, child: CircularProgressIndicator(color: primaryNavy, strokeWidth: 2))
               : Row(
                   children: [
-                    Image.asset('assets/icons/dompet.png', width: 34, height: 34),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: brandYellow.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.account_balance_wallet_rounded, color: textDark, size: 24),
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       _currencyFormat.format(_balance),
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textDark, letterSpacing: -0.5),
                     ),
                   ],
                 ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, size: 14, color: Colors.teal),
-                SizedBox(width: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(color: surfaceBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Biaya admin transfer antar-rekening flat Rp 2.500 per transaksi.",
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal),
+                    "Biaya transfer antar-rekening flat Rp 2.500 per transaksi.",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
                   ),
                 ),
               ],
@@ -419,11 +476,11 @@ class _TransferPageState extends State<TransferPage> {
     final double totalEstimatedDeduction = enteredAmount > 0 ? enteredAmount + adminFee : 0.0;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 18),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
         ],
@@ -431,21 +488,21 @@ class _TransferPageState extends State<TransferPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Metode Pencairan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          const Text('Metode Pencairan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textDark)),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _buildTypeSelector('BANK', 'Transfer Bank', Icons.account_balance),
+                child: _buildTypeSelector('BANK', 'Transfer Bank', Icons.account_balance_rounded),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _buildTypeSelector('EWALLET', 'E-Wallet', Icons.phone_android),
+                child: _buildTypeSelector('EWALLET', 'E-Wallet', Icons.phone_android_rounded),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Pilih Penyedia:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+          const Text('Pilih Penyedia:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -453,10 +510,12 @@ class _TransferPageState extends State<TransferPage> {
             children: (_selectedMethodType == 'BANK' ? _bankOptions : _ewalletOptions).map((prov) {
               final isSelected = _selectedProvider == prov;
               return ChoiceChip(
-                label: Text(prov, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
+                label: Text(prov, style: TextStyle(color: textDark, fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600)),
                 selected: isSelected,
-                selectedColor: primary,
-                backgroundColor: const Color(0xFFF4F6F8),
+                selectedColor: brandYellow,
+                backgroundColor: const Color(0xFFF1F5F9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                side: BorderSide(color: isSelected ? textDark : Colors.transparent),
                 onSelected: (val) {
                   if (val) setState(() => _selectedProvider = prov);
                 },
@@ -471,7 +530,10 @@ class _TransferPageState extends State<TransferPage> {
             decoration: InputDecoration(
               labelText: _selectedMethodType == 'BANK' ? 'Nomor Rekening' : 'Nomor Handphone E-Wallet',
               hintText: _selectedMethodType == 'BANK' ? 'Contoh: 1234567890' : 'Contoh: 081234567890',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: surfaceBg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: textDark, width: 1.5)),
             ),
           ),
           const SizedBox(height: 12),
@@ -480,7 +542,10 @@ class _TransferPageState extends State<TransferPage> {
             decoration: InputDecoration(
               labelText: 'Nama Pemilik Rekening / Akun',
               hintText: 'Sesuai buku tabungan / KTP',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: surfaceBg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: textDark, width: 1.5)),
             ),
           ),
           const SizedBox(height: 12),
@@ -490,9 +555,13 @@ class _TransferPageState extends State<TransferPage> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: InputDecoration(
               prefixText: 'Rp ',
+              prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 16),
               labelText: 'Nominal Penarikan',
               hintText: 'Minimal 10.000',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: surfaceBg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: textDark, width: 1.5)),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -500,7 +569,7 @@ class _TransferPageState extends State<TransferPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Minimal Rp 10.000', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              Text('Minimal Rp 10.000', style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
               InkWell(
                 onTap: () {
                   final double maxWithdrawable = _balance - adminFee;
@@ -514,15 +583,15 @@ class _TransferPageState extends State<TransferPage> {
                     );
                   }
                 },
-                child: Text('Tarik Maksimal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary)),
+                child: const Text('Tarik Maksimal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: textDark)),
               ),
             ],
           ),
           if (enteredAmount > 0) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: surfaceBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -530,9 +599,9 @@ class _TransferPageState extends State<TransferPage> {
                   Text(
                     _currencyFormat.format(totalEstimatedDeduction),
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: totalEstimatedDeduction <= _balance ? Colors.black87 : Colors.red,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: totalEstimatedDeduction <= _balance ? textDark : const Color(0xFFDC2626),
                     ),
                   ),
                 ],
@@ -553,19 +622,20 @@ class _TransferPageState extends State<TransferPage> {
           _selectedProvider = type == 'BANK' ? _bankOptions.first : _ewalletOptions.first;
         });
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? primary.withOpacity(0.12) : const Color(0xFFF4F6F8),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: active ? primary : Colors.grey.shade300, width: 1.5),
+          color: active ? brandYellow.withOpacity(0.3) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: active ? textDark : Colors.grey.shade300, width: 1.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: active ? primary : Colors.grey),
+            Icon(icon, size: 18, color: textDark),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: active ? primary : Colors.black87)),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark)),
           ],
         ),
       ),
@@ -588,18 +658,20 @@ class _TransferPageState extends State<TransferPage> {
           child: ElevatedButton(
             onPressed: valid ? _submitWithdrawal : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: valid ? primary : Colors.grey.shade300,
+              backgroundColor: brandYellow,
+              disabledBackgroundColor: const Color(0xFFE2E8F0),
+              foregroundColor: textDark,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
             child: _isSubmitting
-                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: textDark, strokeWidth: 2))
                 : Text(
                     valid ? "Tarik ${_currencyFormat.format(amount)}" : "Masukkan Nominal Valid",
                     style: TextStyle(
-                      color: valid ? Colors.white : Colors.grey.shade600,
+                      color: valid ? textDark : Colors.grey.shade500,
                       fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
           ),
