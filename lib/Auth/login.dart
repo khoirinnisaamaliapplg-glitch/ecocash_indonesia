@@ -17,6 +17,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+
   // ============================================================
   // CONTROLLER
   // ============================================================
@@ -212,7 +216,7 @@ class _LoginPageState extends State<LoginPage> {
         if (role == 'REGULAR_USER') {
           if (!mounted) return;
 
-          _showSnackBar('Selamat Datang!', Colors.green);
+          _showSnackBar('Selamat Datang!', const Color(0xFF00AA13));
 
           Navigator.pushReplacement(
             context,
@@ -387,7 +391,8 @@ class _LoginPageState extends State<LoginPage> {
 
                 child: Checkbox(
                   value: _rememberMe,
-
+                  activeColor: textDark,
+                  checkColor: brandYellow,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
 
                   onChanged: (value) {
@@ -430,7 +435,7 @@ class _LoginPageState extends State<LoginPage> {
           child: const Text(
             'Lupa Password?',
 
-            style: TextStyle(fontSize: 14, color: Color(0xFF2E7D32)),
+            style: TextStyle(fontSize: 14, color: textDark, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -639,6 +644,14 @@ class _LoginPageState extends State<LoginPage> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: textDark,
+                              width: 1.5,
+                            ),
+                          ),
                         ),
                       ),
 
@@ -696,6 +709,14 @@ class _LoginPageState extends State<LoginPage> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: textDark,
+                              width: 1.5,
+                            ),
+                          ),
                         ),
                       ),
 
@@ -719,8 +740,8 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: _isLoading ? null : _handleLogin,
 
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E7D32),
-
+                            backgroundColor: brandYellow,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -732,13 +753,13 @@ class _LoginPageState extends State<LoginPage> {
                                   height: 24,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    color: Colors.white,
+                                    color: textDark,
                                   ),
                                 )
                               : const Text(
                                   'Masuk',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: textDark,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -776,7 +797,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: const Text(
                                 'Daftar Sekarang',
                                 style: TextStyle(
-                                  color: Colors.blue,
+                                  color: textDark,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

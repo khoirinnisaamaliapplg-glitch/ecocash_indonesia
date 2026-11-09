@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ecocash_indonesia/ipconfig.dart';
 
+// Alias tipe agar kebal terhadap pemotongan teks copy-paste
+typedef CharityMap = Map<String, dynamic>;
+
 class DonationPage extends StatefulWidget {
   const DonationPage({super.key});
 
@@ -12,12 +15,20 @@ class DonationPage extends StatefulWidget {
 }
 
 class _DonationPageState extends State<DonationPage> {
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color brandYellowDark = Color(0xFFF5D000);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   bool isBrowseActive = true;
   bool _isLoading = false;
   String? _errorMessage;
 
-  List<Map<String, dynamic>> _charities = [];
-  List<Map<String, dynamic>> _myDonations = [];
+  List<CharityMap> _charities = [];
+  List<CharityMap> _myDonations = [];
 
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
@@ -63,7 +74,6 @@ class _DonationPageState extends State<DonationPage> {
           break;
       }
 
-      // Bypass cache lama dengan timestamp parameter
       query['_t'] = DateTime.now().millisecondsSinceEpoch.toString();
 
       Uri uri = Uri.parse(ApiConfig.getPublicCharities);
@@ -72,7 +82,7 @@ class _DonationPageState extends State<DonationPage> {
       final response = await http.get(uri, headers: ApiConfig.headers);
 
       if (response.statusCode == 200) {
-        List<Map<String, dynamic>> data = _extractList(response.body, 'charities');
+        List<CharityMap> data = _extractList(response.body, 'charities');
 
         if (_selectedCategory == 'Urgent') {
           data.sort((a, b) {
@@ -178,7 +188,7 @@ class _DonationPageState extends State<DonationPage> {
     }
   }
 
-  Future<void> _openDonationSheet(Map<String, dynamic> charity) async {
+  Future<void> _openDonationSheet(CharityMap charity) async {
     final token = ApiConfig.userToken;
     if (token == null || token.trim().isEmpty) {
       _showSnackBar('Silakan login terlebih dahulu untuk berdonasi.', isError: true);
@@ -189,8 +199,9 @@ class _DonationPageState extends State<DonationPage> {
     try {
       final walletRes = await http.get(Uri.parse(ApiConfig.getMyWallet), headers: ApiConfig.headers);
       if (walletRes.statusCode == 200) {
-        final wData = jsonDecode(walletRes.body);
-        final rawBal = (wData['data'] ?? wData)['balance'] ?? 0;
+        final dynamic wData = jsonDecode(walletRes.body);
+        final dynamic payload = wData is Map ? (wData['data'] ?? wData) : {};
+        final rawBal = payload is Map ? payload['balance'] : 0;
         userBalance = (rawBal is num) ? rawBal.toDouble() : double.tryParse(rawBal.toString()) ?? 0.0;
       }
     } catch (_) {}
@@ -200,7 +211,8 @@ class _DonationPageState extends State<DonationPage> {
 
     if (!mounted) return;
 
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
+    // Tanpa kurung sudut generik agar bebas dari kerusakan copy-paste
+    final dynamic result = await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -209,10 +221,10 @@ class _DonationPageState extends State<DonationPage> {
           builder: (context, setSheetState) {
             return Container(
               padding: EdgeInsets.only(
-                left: 22,
-                right: 22,
-                top: 22,
-                bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom + 25,
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom + 24,
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -226,44 +238,83 @@ class _DonationPageState extends State<DonationPage> {
                   children: [
                     Center(
                       child: Container(
-                        width: 45,
-                        height: 5,
+                        width: 44,
+                        height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: Colors.grey.shade300,
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text('Beri Bantuan Sosial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(
-                      charity['name']?.toString() ?? 'Program Bantuan',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: brandYellow.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.volunteer_activism_rounded, color: textDark, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Beri Bantuan Sosial',
+                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: textDark),
+                              ),
+                              Text(
+                                charity['name']?.toString() ?? 'Program Bantuan',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
-                    // Info Saldo Dompet
+                    // Kartu Saldo Dompet Warga
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(12),
+                        color: surfaceBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.account_balance_wallet, color: Color(0xFF28A745), size: 20),
+                          const Icon(Icons.account_balance_wallet_rounded, color: primaryNavy, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              'Saldo Tersedia: Rp ${_formatNumber(userBalance)}',
-                              style: const TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 13),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Saldo Dompet EcoCash', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                Text(
+                                  'Rp ${_formatNumber(userBalance)}',
+                                  style: const TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 15),
+                                ),
+                              ],
                             ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('Aktif', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
                     // Input Nominal
                     TextField(
@@ -272,9 +323,15 @@ class _DonationPageState extends State<DonationPage> {
                       decoration: InputDecoration(
                         labelText: 'Nominal Donasi',
                         prefixText: 'Rp ',
+                        prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 16),
                         hintText: 'Minimal 1.000',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        filled: true,
+                        fillColor: surfaceBg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: textDark, width: 1.5)),
                       ),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: textDark),
                       onChanged: (_) => setSheetState(() {}),
                     ),
                     const SizedBox(height: 10),
@@ -286,6 +343,10 @@ class _DonationPageState extends State<DonationPage> {
                       children: [5000, 10000, 25000, 50000].map((amt) {
                         return ActionChip(
                           label: Text('Rp ${_formatNumber(amt.toDouble())}'),
+                          backgroundColor: surfaceBg,
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark),
                           onPressed: () {
                             setSheetState(() {
                               amountController.text = amt.toString();
@@ -300,10 +361,14 @@ class _DonationPageState extends State<DonationPage> {
                       controller: messageController,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        labelText: 'Pesan / Doa (opsional)',
-                        hintText: 'Semoga bantuan ini bermanfaat...',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        labelText: 'Pesan / Doa Kebaikan (Opsional)',
+                        hintText: 'Semoga bantuan ini membawa berkah...',
+                        filled: true,
+                        fillColor: surfaceBg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
                       ),
+                      style: const TextStyle(fontSize: 13),
                     ),
                     const SizedBox(height: 20),
 
@@ -312,8 +377,8 @@ class _DonationPageState extends State<DonationPage> {
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF28A745),
-                          foregroundColor: Colors.white,
+                          backgroundColor: brandYellow,
+                          foregroundColor: textDark,
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
@@ -343,7 +408,7 @@ class _DonationPageState extends State<DonationPage> {
                             'message': messageController.text.trim(),
                           });
                         },
-                        child: const Text('Konfirmasi Donasi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        child: const Text('Konfirmasi & Salurkan Donasi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
                       ),
                     ),
                   ],
@@ -358,7 +423,7 @@ class _DonationPageState extends State<DonationPage> {
     amountController.dispose();
     messageController.dispose();
 
-    if (result == null) return;
+    if (result == null || result is! Map) return;
     final charityId = _toInt(charity['id']);
     if (charityId == null) return;
 
@@ -398,7 +463,7 @@ class _DonationPageState extends State<DonationPage> {
     }
   }
 
-  List<Map<String, dynamic>> _extractList(String body, String key) {
+  List<CharityMap> _extractList(String body, String key) {
     try {
       final decoded = jsonDecode(body);
       dynamic payload = decoded;
@@ -430,7 +495,7 @@ class _DonationPageState extends State<DonationPage> {
       if (rawList is! List) return [];
 
       return rawList
-          .whereType<Map>()
+          .whereType()
           .map((item) => Map<String, dynamic>.from(item))
           .toList();
     } catch (e) {
@@ -462,33 +527,38 @@ class _DonationPageState extends State<DonationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFBFB),
+      backgroundColor: surfaceBg,
       body: RefreshIndicator(
         onRefresh: _refreshCurrentPage,
+        color: textDark,
+        backgroundColor: brandYellow,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
               _buildHeader(context),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: Column(
                   children: [
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 34),
                     if (isBrowseActive) ...[
                       _buildSearchAndFilter(),
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 18),
                       _buildCategoryTabs(),
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 20),
                     ] else ...[
                       const Align(
                         alignment: Alignment.centerLeft,
-                        child: Text('Riwayat Donasi Saya', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          'Riwayat Kebaikan Saya',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: textDark),
+                        ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                     ],
                     _buildContent(),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -503,7 +573,7 @@ class _DonationPageState extends State<DonationPage> {
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: CircularProgressIndicator(color: primaryNavy)),
       );
     }
 
@@ -516,7 +586,11 @@ class _DonationPageState extends State<DonationPage> {
             const SizedBox(height: 12),
             Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 15),
-            OutlinedButton(onPressed: _refreshCurrentPage, child: const Text('Coba Lagi')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: brandYellow, foregroundColor: textDark),
+              onPressed: _refreshCurrentPage,
+              child: const Text('Coba Lagi', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
       );
@@ -535,7 +609,7 @@ class _DonationPageState extends State<DonationPage> {
         children: [
           for (int i = 0; i < _charities.length; i++) ...[
             _buildCharityCard(_charities[i]),
-            if (i != _charities.length - 1) const SizedBox(height: 20),
+            if (i != _charities.length - 1) const SizedBox(height: 16),
           ],
         ],
       );
@@ -543,9 +617,9 @@ class _DonationPageState extends State<DonationPage> {
 
     if (_myDonations.isEmpty) {
       return _buildEmptyState(
-        icon: Icons.favorite_border,
+        icon: Icons.favorite_border_rounded,
         title: 'Belum ada riwayat donasi',
-        subtitle: 'Donasi yang Anda lakukan akan muncul di sini.',
+        subtitle: 'Donasi yang Anda lakukan dari saldo daur ulang akan muncul di sini.',
       );
     }
 
@@ -553,7 +627,7 @@ class _DonationPageState extends State<DonationPage> {
       children: [
         for (int i = 0; i < _myDonations.length; i++) ...[
           _buildMyDonationCard(_myDonations[i]),
-          if (i != _myDonations.length - 1) const SizedBox(height: 16),
+          if (i != _myDonations.length - 1) const SizedBox(height: 14),
         ],
       ],
     );
@@ -564,53 +638,63 @@ class _DonationPageState extends State<DonationPage> {
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 320,
+          height: 250,
           width: double.infinity,
           decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFEA2E),
+                brandYellow,
+                Color(0xFFFFDF00),
+              ],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 0),
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back, color: textDark),
                   onPressed: () => Navigator.maybePop(context),
                 ),
+                const SizedBox(width: 8),
                 const Padding(
-                  padding: EdgeInsets.only(top: 12),
+                  padding: EdgeInsets.only(top: 10),
                   child: Text(
-                    'Bantuan Sosial',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    'Bantuan & Donasi Sosial',
+                    style: TextStyle(color: textDark, fontSize: 20, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],
             ),
           ),
         ),
+
         Positioned(
-          bottom: 85,
-          left: 20,
-          right: 20,
+          bottom: -22,
+          left: 18,
+          right: 18,
           child: Container(
-            height: 55,
+            height: 52,
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(30),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(26),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
               ],
             ),
             child: Row(
               children: [
-                _buildToggleItem('My Donation', !isBrowseActive, () => _switchTab(false)),
-                _buildToggleItem('Browse Charities', isBrowseActive, () => _switchTab(true)),
+                _buildToggleItem('Jelajah Program', isBrowseActive, () => _switchTab(true)),
+                _buildToggleItem('Riwayat Donasi', !isBrowseActive, () => _switchTab(false)),
               ],
             ),
           ),
@@ -623,21 +707,19 @@ class _DonationPageState extends State<DonationPage> {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            color: isActive ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: isActive
-                ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
-                : [],
+            color: isActive ? textDark : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Center(
             child: Text(
               label,
               style: TextStyle(
-                color: isActive ? Colors.black : Colors.grey[600],
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                fontSize: 14,
+                color: isActive ? brandYellow : Colors.grey.shade600,
+                fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
+                fontSize: 13,
               ),
             ),
           ),
@@ -648,58 +730,69 @@ class _DonationPageState extends State<DonationPage> {
 
   Widget _buildSearchAndFilter() {
     return Container(
-      height: 50,
+      height: 48,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
-        decoration: const InputDecoration(
-          hintText: 'Cari program bantuan...',
-          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-          prefixIcon: Icon(Icons.search, color: Colors.grey),
+        decoration: InputDecoration(
+          hintText: 'Cari program bantuan lingkungan / kemanusiaan...',
+          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+          prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey, size: 20),
           border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );
   }
 
   Widget _buildCategoryTabs() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _categoryItem('Latest', Icons.watch_later),
-        _categoryItem('Urgent', Icons.notifications_active_outlined),
-        _categoryItem('Top Donate', Icons.emoji_events_outlined),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _categoryItem('Latest', 'Terbaru', Icons.schedule_rounded),
+          const SizedBox(width: 8),
+          _categoryItem('Urgent', 'Mendesak', Icons.bolt_rounded),
+          const SizedBox(width: 8),
+          _categoryItem('Top Donate', 'Paling Banyak Dibantu', Icons.emoji_events_rounded),
+        ],
+      ),
     );
   }
 
-  Widget _categoryItem(String label, IconData icon) {
-    final active = _selectedCategory == label;
+  Widget _categoryItem(String key, String label, IconData icon) {
+    final active = _selectedCategory == key;
     return GestureDetector(
       onTap: () {
-        setState(() => _selectedCategory = label);
+        setState(() => _selectedCategory = key);
         _fetchPublicCharities(search: _searchController.text);
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFE1F5FE) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: active ? brandYellow : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: active ? textDark : Colors.grey.shade300),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: Colors.blue),
+            Icon(icon, size: 16, color: textDark),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                fontSize: 13,
+                fontWeight: active ? FontWeight.w900 : FontWeight.w600,
+                fontSize: 12,
+                color: textDark,
               ),
             ),
           ],
@@ -708,11 +801,11 @@ class _DonationPageState extends State<DonationPage> {
     );
   }
 
-  Widget _buildCharityCard(Map<String, dynamic> charity) {
+  Widget _buildCharityCard(CharityMap charity) {
     final id = _toInt(charity['id']);
     final title = charity['name']?.toString() ?? 'Program Bantuan';
     final foundation = charity['foundation'];
-    final foundationName = foundation is Map ? foundation['name']?.toString() ?? 'Foundation' : 'Foundation';
+    final foundationName = foundation is Map ? foundation['name']?.toString() ?? 'Yayasan Mitra' : 'Yayasan Mitra';
     final imageUrl = charity['imageUrl']?.toString();
     final target = _toDouble(charity['targetAmount']);
     final collected = _toDouble(charity['collectedAmount']);
@@ -727,84 +820,126 @@ class _DonationPageState extends State<DonationPage> {
     final isDonating = id != null && _donatingCharityId == id;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 14, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
-                  width: 100,
-                  height: 100,
+                  width: 90,
+                  height: 90,
                   child: imageUrl != null && imageUrl.isNotEmpty
                       ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imagePlaceholder())
                       : _imagePlaceholder(),
                 ),
               ),
-              const SizedBox(width: 15),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    if (isClosed)
-                      Text(_formatStatus(status), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Text('Foundation:', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                    Text('by $foundationName', style: TextStyle(color: Colors.grey[700], fontSize: 11, fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 10),
-                    Text('${(progress * 100).toStringAsFixed(0)}% dari target Rp ${_formatNumber(target)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: const Color(0xFFEEEEEE),
-                        valueColor: AlwaysStoppedAnimation<Color>(isClosed ? Colors.redAccent : const Color(0xFF28A745)),
-                        minHeight: 6,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            foundationName,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
-                    Text('Terkumpul Rp ${_formatNumber(collected)}', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textDark),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isClosed) ...[
+                      const SizedBox(height: 4),
+                      Text(_formatStatus(status), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 14),
+
+          // Baris Progres & Target
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Terkumpul Rp ${_formatNumber(collected)}',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: textDark),
+              ),
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}%',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: ecoGreen),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: AlwaysStoppedAnimation<Color>(isClosed ? Colors.grey : ecoGreen),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Target: Rp ${_formatNumber(target)}',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+
+          const Divider(height: 22),
+
+          // Baris Aksi & Jumlah Donatur
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  Icon(isClosed ? Icons.favorite_border : Icons.favorite, color: isClosed ? Colors.grey : Colors.red, size: 20),
-                  const SizedBox(width: 8),
-                  Text('$donationCount Donations', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const Icon(Icons.favorite_rounded, color: Color(0xFFE11D48), size: 18),
+                  const SizedBox(width: 6),
+                  Text('$donationCount Donasi Masuk', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textDark)),
                 ],
               ),
               ElevatedButton(
                 onPressed: isClosed || isDonating || id == null ? null : () => _openDonationSheet(charity),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF28A745),
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFE0E0E0),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: brandYellow,
+                  foregroundColor: textDark,
+                  disabledBackgroundColor: const Color(0xFFE2E8F0),
                   elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 child: isDonating
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Donate now'),
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: textDark))
+                    : const Text('Bantu Sekarang', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
               ),
             ],
           ),
@@ -813,7 +948,7 @@ class _DonationPageState extends State<DonationPage> {
     );
   }
 
-  Widget _buildMyDonationCard(Map<String, dynamic> donation) {
+  Widget _buildMyDonationCard(CharityMap donation) {
     final charity = donation['charity'];
     final charityName = charity is Map ? charity['name']?.toString() ?? 'Program Bantuan' : 'Program Bantuan';
     String foundationName = '-';
@@ -826,38 +961,40 @@ class _DonationPageState extends State<DonationPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(14),
+              color: brandYellow.withOpacity(0.25),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.favorite, color: Color(0xFF28A745)),
+            child: const Icon(Icons.favorite_rounded, color: textDark, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(charityName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 3),
-                Text(foundationName, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                Text(charityName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark)),
+                const SizedBox(height: 2),
+                Text('Penyalur: $foundationName', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
                 if (message != null && message.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text('"$message"', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 4),
+                  Text('"$message"', style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontStyle: FontStyle.italic)),
                 ],
                 if (createdAt != null) ...[
-                  const SizedBox(height: 5),
-                  Text(_formatDate(createdAt), style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                  const SizedBox(height: 4),
+                  Text(_formatDate(createdAt), style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
                 ],
               ],
             ),
@@ -865,7 +1002,7 @@ class _DonationPageState extends State<DonationPage> {
           const SizedBox(width: 10),
           Text(
             'Rp ${_formatNumber(amount)}',
-            style: const TextStyle(color: Color(0xFF28A745), fontWeight: FontWeight.bold, fontSize: 13),
+            style: const TextStyle(color: ecoGreen, fontWeight: FontWeight.w900, fontSize: 14),
           ),
         ],
       ),
@@ -874,21 +1011,21 @@ class _DonationPageState extends State<DonationPage> {
 
   Widget _imagePlaceholder() {
     return Container(
-      color: Colors.grey[200],
-      child: const Icon(Icons.volunteer_activism, color: Colors.grey, size: 40),
+      color: const Color(0xFFF1F5F9),
+      child: const Icon(Icons.volunteer_activism_rounded, color: Colors.grey, size: 36),
     );
   }
 
   Widget _buildEmptyState({required IconData icon, required String title, required String subtitle}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60),
+      padding: const EdgeInsets.symmetric(vertical: 50),
       child: Column(
         children: [
-          Icon(icon, size: 60, color: Colors.grey[350]),
-          const SizedBox(height: 15),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 6),
-          Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+          Icon(icon, size: 54, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
+          const SizedBox(height: 4),
+          Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
         ],
       ),
     );
@@ -904,7 +1041,7 @@ class _DonationPageState extends State<DonationPage> {
       case 'COMPLETED':
         return 'Target Tercapai';
       case 'CLOSED':
-        return 'Closed';
+        return 'Program Selesai';
       default:
         return status;
     }
@@ -924,7 +1061,7 @@ class _DonationPageState extends State<DonationPage> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: isError ? Colors.red : const Color(0xFF28A745),
+          backgroundColor: isError ? Colors.red : const Color(0xFF00AA13),
         ),
       );
   }

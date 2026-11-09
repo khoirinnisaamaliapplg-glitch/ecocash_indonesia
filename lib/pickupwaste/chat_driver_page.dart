@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../ipconfig.dart';
 
-// Alias tipe agar tidak terpotong saat proses copy-paste
 typedef ChatMap = Map<String, dynamic>;
 
 class ChatDriverPage extends StatefulWidget {
@@ -29,7 +28,10 @@ class ChatDriverPage extends StatefulWidget {
 }
 
 class _ChatDriverPageState extends State<ChatDriverPage> {
-  final Color primary = const Color(0xff0BCFD1);
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -68,13 +70,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
     } catch (_) {}
 
     if (base.isEmpty) {
-      try {
-        final sample = ApiConfig.getUserAddresses;
-        final uri = Uri.parse(sample);
-        base = "${uri.scheme}://${uri.host}:${uri.port}/api/v1";
-      } catch (_) {
-        base = "http://localhost:5000/api/v1";
-      }
+      base = "http://localhost:5000/api/v1";
     }
 
     final cleanBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
@@ -114,7 +110,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
 
         if (data is Map) {
           _roomId = data['id']?.toString();
-          _userId = _toInt(data['userId']);
+          _userId = int.tryParse(data['userId']?.toString() ?? '');
 
           final rawMessages = data['messages'];
           if (rawMessages is List && mounted) {
@@ -207,18 +203,6 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
     _scrollToBottom();
 
     try {
-      if (_roomId == null) {
-        final roomRes = await http.get(
-          Uri.parse(_buildUrl('/chat/job/${widget.jobId}')),
-          headers: ApiConfig.headers,
-        );
-        if (roomRes.statusCode == 200) {
-          final rData = jsonDecode(roomRes.body);
-          _roomId = (rData['data'] ?? rData)['id']?.toString();
-          _userId ??= _toInt((rData['data'] ?? rData)['userId']);
-        }
-      }
-
       if (_roomId != null) {
         await http.post(
           Uri.parse(_buildUrl('/chat/message')),
@@ -235,7 +219,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
         );
       }
     } catch (e) {
-      debugPrint("Gagal mengirim pesan chat: $e");
+      debugPrint("Gagal kirim pesan: $e");
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -263,11 +247,6 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
     }
   }
 
-  int? _toInt(dynamic val) {
-    if (val is int) return val;
-    return int.tryParse(val?.toString() ?? '');
-  }
-
   void _callDriver() async {
     if (widget.driverPhone == null || widget.driverPhone!.isEmpty) return;
     final Uri telUri = Uri.parse("tel:${widget.driverPhone}");
@@ -282,20 +261,20 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
         widget.orderStatus.toLowerCase().contains('completed');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8F3),
+      backgroundColor: surfaceBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
+        backgroundColor: brandYellow,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back, color: textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
           children: [
             CircleAvatar(
-              backgroundColor: primary.withOpacity(0.15),
-              radius: 18,
-              child: const Icon(Icons.two_wheeler, color: Color(0xFF0F2C59), size: 20),
+              backgroundColor: textDark,
+              radius: 17,
+              child: const Icon(Icons.two_wheeler, color: brandYellow, size: 18),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -304,12 +283,12 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
                 children: [
                   Text(
                     widget.driverName,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textDark),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    widget.vehicleInfo != null ? '${widget.vehicleInfo} • Driver' : 'Driver EcoCash Partner',
-                    style: const TextStyle(fontSize: 11, color: Colors.teal),
+                    widget.vehicleInfo != null ? '${widget.vehicleInfo} • Driver' : 'Driver Partner',
+                    style: const TextStyle(fontSize: 11, color: textDark, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -319,7 +298,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
         actions: [
           if (widget.driverPhone != null && widget.driverPhone!.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.phone, color: Colors.teal),
+              icon: const Icon(Icons.phone, color: textDark),
               tooltip: 'Telepon Driver',
               onPressed: _callDriver,
             ),
@@ -330,12 +309,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
           _buildStatusBanner(isCompleted),
           Expanded(
             child: _messages.isEmpty
-                ? const Center(
-                    child: Text(
-                      "Belum ada pesan. Riwayat percakapan kurir akan tampil di sini.",
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  )
+                ? const Center(child: Text("Belum ada pesan.", style: TextStyle(color: Colors.grey, fontSize: 12)))
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -351,15 +325,8 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
                           child: Container(
                             margin: const EdgeInsets.symmetric(vertical: 8),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              msg['text'] ?? '',
-                              style: const TextStyle(fontSize: 11, color: Colors.black54),
-                              textAlign: TextAlign.center,
-                            ),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
+                            child: Text(msg['text'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.black54), textAlign: TextAlign.center),
                           ),
                         );
                       }
@@ -379,25 +346,17 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isCompleted ? Colors.green.shade50 : primary.withOpacity(0.1),
+      color: isCompleted ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
       child: Row(
         children: [
-          Icon(
-            isCompleted ? Icons.verified : Icons.info_outline,
-            size: 16,
-            color: isCompleted ? Colors.green : Colors.teal,
-          ),
+          Icon(isCompleted ? Icons.verified : Icons.info_outline, size: 16, color: isCompleted ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               isCompleted
-                  ? 'Status: ${widget.orderStatus}. Riwayat chat tetap tersimpan jika Anda butuh rekonsiliasi atau komplain ke kurir.'
+                  ? 'Status: Selesai. Riwayat chat tetap disimpan jika Anda butuh rekonsiliasi.'
                   : 'Status: ${widget.orderStatus}. Koordinasikan titik temu sampah dengan kurir.',
-              style: TextStyle(
-                fontSize: 11,
-                color: isCompleted ? Colors.green.shade800 : Colors.teal,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 11, color: isCompleted ? const Color(0xFF166534) : const Color(0xFF92400E), fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -413,36 +372,16 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isMe ? primary : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 16),
-          ),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
-          ],
+          color: isMe ? brandYellow : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 13,
-                color: isMe ? Colors.white : Colors.black87,
-                height: 1.3,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              time,
-              style: TextStyle(
-                fontSize: 9,
-                color: isMe ? Colors.white70 : Colors.grey,
-              ),
-            ),
+            Text(text, style: TextStyle(fontSize: 13, color: isMe ? textDark : Colors.black87, fontWeight: isMe ? FontWeight.w600 : FontWeight.normal)),
+            const SizedBox(height: 3),
+            Text(time, style: TextStyle(fontSize: 9, color: isMe ? Colors.black54 : Colors.grey)),
           ],
         ),
       ),
@@ -461,7 +400,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
         itemBuilder: (context, i) {
           final text = _quickTemplates[i];
           return ActionChip(
-            label: Text(text, style: const TextStyle(fontSize: 11)),
+            label: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textDark)),
             backgroundColor: Colors.white,
             side: BorderSide(color: Colors.grey.shade300),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -484,7 +423,7 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
                 controller: _msgController,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: isCompleted ? 'Tulis pesan lanjutan atau catatan komplain...' : 'Tulis pesan untuk driver...',
+                  hintText: isCompleted ? 'Catatan komplain / pesan...' : 'Tulis pesan untuk driver...',
                   hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   filled: true,
@@ -496,10 +435,10 @@ class _ChatDriverPageState extends State<ChatDriverPage> {
             ),
             const SizedBox(width: 8),
             CircleAvatar(
-              backgroundColor: primary,
+              backgroundColor: brandYellow,
               radius: 20,
               child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white, size: 18),
+                icon: const Icon(Icons.send, color: textDark, size: 18),
                 onPressed: () => _sendMessage(_msgController.text),
               ),
             ),

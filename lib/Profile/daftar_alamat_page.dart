@@ -13,7 +13,12 @@ class DaftarAlamatPage extends StatefulWidget {
 }
 
 class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
-  final Color primary = const Color(0xff0BCFD1);
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   bool _isLoading = true;
   List<dynamic> _addresses = [];
 
@@ -43,8 +48,6 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
         setState(() {
           _addresses = list;
         });
-      } else {
-        debugPrint("Gagal mengambil alamat: ${res.statusCode} - ${res.body}");
       }
     } catch (e) {
       debugPrint("Gagal memuat alamat: $e");
@@ -62,14 +65,6 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
 
       if (res.statusCode == 200) {
         _fetchAddresses();
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal menetapkan alamat utama: ${res.statusCode}"),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } catch (e) {
       debugPrint("Gagal mengubah alamat default: $e");
@@ -85,21 +80,12 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
 
       if (res.statusCode == 200) {
         _fetchAddresses();
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal menghapus alamat: ${res.statusCode}"),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } catch (e) {
       debugPrint("Gagal menghapus alamat: $e");
     }
   }
 
-  // Preset koordinat kota dan area operasional EcoCash
   final Map<String, Map<String, dynamic>> _areaPresets = {
     'Bandung (Sukajadi/Pasteur)': {
       'province': 'JAWA BARAT',
@@ -161,7 +147,6 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          // Deteksi koordinat otomatis dari teks detail alamat
           void autoDetectCoordinates(String text) {
             final lower = text.toLowerCase();
             String? matchedKey;
@@ -199,21 +184,20 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Tambah Alamat Baru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Koordinat spasial GPS akan disimpan otomatis ke PostGIS.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  const Text('Tambah Alamat Rumah Baru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark)),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Koordinat spasial GPS disimpan otomatis ke PostGIS.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 14),
 
-                  // Pilihan Area / Kota Operasional
-                  const Text('Wilayah Operasional:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const Text('Wilayah Operasional:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark)),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF4F6F8),
+                      color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade300),
                     ),
@@ -224,7 +208,7 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                         items: _areaPresets.keys.map((k) {
                           return DropdownMenuItem<String>(
                             value: k,
-                            child: Text(k, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            child: Text(k, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                           );
                         }).toList(),
                         onChanged: (val) {
@@ -243,28 +227,27 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Badge Preview Koordinat Spasial
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: primary.withOpacity(0.08),
+                      color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: primary.withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.my_location, size: 16, color: primary),
+                        const Icon(Icons.my_location, size: 16, color: Color(0xFFD97706)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            "Koordinat Aktif: $currentLat, $currentLng",
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primary),
+                            "Koordinat: $currentLat, $currentLng",
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark),
                           ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: primary, borderRadius: BorderRadius.circular(4)),
-                          child: const Text("PostGIS Ready", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                          decoration: BoxDecoration(color: textDark, borderRadius: BorderRadius.circular(4)),
+                          child: const Text("PostGIS Ready", style: TextStyle(color: brandYellow, fontSize: 9, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -274,7 +257,7 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                   TextField(
                     controller: labelCtrl,
                     decoration: InputDecoration(
-                      labelText: 'Label Alamat (Rumah, Kantor, Toko)',
+                      labelText: 'Label Alamat (Rumah, Toko, Kantor)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
@@ -346,19 +329,22 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                   const SizedBox(height: 8),
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Jadikan Alamat Utama', style: TextStyle(fontSize: 13)),
+                    title: const Text('Jadikan Alamat Utama', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                     value: isDefault,
-                    activeColor: primary,
+                    activeColor: textDark,
+                    checkColor: brandYellow,
                     onChanged: (val) => setModalState(() => isDefault = val ?? false),
                   ),
                   const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
+                    height: 50,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        backgroundColor: brandYellow,
+                        foregroundColor: textDark,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
                       ),
                       onPressed: () async {
                         if (detailCtrl.text.trim().isEmpty) {
@@ -376,7 +362,6 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
 
                         final activePreset = _areaPresets[selectedAreaKey]!;
 
-                        // Payload lengkap dengan latitude dan longitude murni bertipe numerik
                         final payload = {
                           'label': labelCtrl.text.trim().isNotEmpty ? labelCtrl.text.trim() : 'Rumah',
                           'recipientName': recipientCtrl.text.trim().isNotEmpty ? recipientCtrl.text.trim() : 'Warga EcoCash',
@@ -405,15 +390,7 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text("Alamat dengan koordinat spasial berhasil disimpan!"),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } else {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal menyimpan: ${response.statusCode} - ${response.body}'),
-                                backgroundColor: Colors.red,
+                                backgroundColor: Color(0xFF00AA13),
                               ),
                             );
                           }
@@ -421,7 +398,7 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                           debugPrint("Error menyimpan alamat: $e");
                         }
                       },
-                      child: const Text('Simpan Alamat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: const Text('Simpan Alamat', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                     ),
                   ),
                 ],
@@ -436,21 +413,21 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8F3),
+      backgroundColor: surfaceBg,
       appBar: AppBar(
-        backgroundColor: primary,
+        backgroundColor: brandYellow,
         elevation: 0,
         title: Text(
-          widget.isSelecting ? 'Pilih Alamat Penjemputan' : 'Daftar Alamat Tersimpan',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+          widget.isSelecting ? 'Pilih Alamat Penjemputan' : 'Daftar Alamat Rumah',
+          style: const TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 17),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: textDark),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: primary))
+          ? const Center(child: CircularProgressIndicator(color: primaryNavy))
           : _addresses.isEmpty
               ? Center(
                   child: Column(
@@ -461,10 +438,10 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                       const Text('Belum ada alamat tersimpan di database', style: TextStyle(color: Colors.grey)),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: primary),
+                        style: ElevatedButton.styleFrom(backgroundColor: brandYellow, foregroundColor: textDark),
                         onPressed: _showAddAddressDialog,
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        label: const Text('Tambah Alamat', style: TextStyle(color: Colors.white)),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Tambah Alamat', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -484,8 +461,8 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isDefault ? primary : Colors.grey.shade200, width: isDefault ? 1.5 : 1),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: isDefault ? textDark : Colors.grey.shade200, width: isDefault ? 1.5 : 1),
                         boxShadow: [
                           BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3)),
                         ],
@@ -500,19 +477,19 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                                 children: [
                                   Text(
                                     item['label'] ?? 'Alamat',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark),
                                   ),
                                   if (isDefault) ...[
                                     const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
+                                        color: const Color(0xFFDCFCE7),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: Text(
+                                      child: const Text(
                                         'Utama',
-                                        style: TextStyle(color: Colors.green.shade800, fontSize: 10, fontWeight: FontWeight.bold),
+                                        style: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                   ],
@@ -521,12 +498,14 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                               if (widget.isSelecting)
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: primary,
+                                    backgroundColor: brandYellow,
+                                    foregroundColor: textDark,
+                                    elevation: 0,
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () => Navigator.pop(context, item),
-                                  child: const Text('Gunakan', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                  child: const Text('Gunakan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                             ],
                           ),
@@ -546,7 +525,7 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                               if (!isDefault)
                                 TextButton(
                                   onPressed: () => _setDefaultAddress(item['id']),
-                                  child: const Text('Jadikan Utama', style: TextStyle(fontSize: 12)),
+                                  child: const Text('Jadikan Utama', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark)),
                                 )
                               else
                                 const SizedBox(),
@@ -562,10 +541,11 @@ class _DaftarAlamatPageState extends State<DaftarAlamatPage> {
                   },
                 ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: primary,
+        backgroundColor: brandYellow,
+        foregroundColor: textDark,
         onPressed: _showAddAddressDialog,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Tambah Alamat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Alamat', style: TextStyle(fontWeight: FontWeight.w900)),
       ),
     );
   }

@@ -18,6 +18,12 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   Map<String, dynamic> cartData = {
     'stores': [],
     'summary': {
@@ -70,7 +76,8 @@ class _CartScreenState extends State<CartScreen> {
       );
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
-        final List list = decoded['data'] ?? [];
+        final rawList = decoded['data'];
+        final list = rawList is List ? rawList : [];
         if (list.isNotEmpty) {
           final selected = _activeAddressId != null
               ? list.firstWhere((a) => a['id'] == _activeAddressId, orElse: () => list.first)
@@ -90,10 +97,6 @@ class _CartScreenState extends State<CartScreen> {
       if (mounted) setState(() => _addressLabel = 'Alamat Pengiriman Default');
     }
   }
-
-  // ============================================================
-  // GET CART
-  // ============================================================
 
   Future<void> fetchCart({bool showLoading = true}) async {
     if (showLoading && mounted) {
@@ -180,17 +183,19 @@ class _CartScreenState extends State<CartScreen> {
     if (processingItemIds.contains(itemId)) return;
 
     if (confirmation) {
-      final result = await showDialog<bool>(
+      final dynamic result = await showDialog(
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: const Text('Hapus Produk'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Hapus Produk', style: TextStyle(fontWeight: FontWeight.bold)),
             content: const Text('Apakah Anda yakin ingin menghapus produk ini dari keranjang?'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-              TextButton(
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                child: const Text('Hapus', style: TextStyle(color: Colors.white)),
               ),
             ],
           );
@@ -225,17 +230,19 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> clearCart() async {
     if (_allItems.isEmpty) return;
 
-    final confirm = await showDialog<bool>(
+    final dynamic confirm = await showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Kosongkan Keranjang'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Kosongkan Keranjang', style: TextStyle(fontWeight: FontWeight.bold)),
           content: const Text('Semua produk di dalam keranjang akan dihapus.'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-            TextButton(
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Kosongkan', style: TextStyle(color: Colors.red)),
+              child: const Text('Kosongkan', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -267,7 +274,7 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  Future<Map<String, dynamic>?> previewCheckout() async {
+  Future<dynamic> previewCheckout() async {
     if (selectedItemIds.isEmpty) {
       _showError('Pilih minimal satu produk untuk checkout.');
       return null;
@@ -365,10 +372,6 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  // ============================================================
-  // CHECKOUT MODAL WITH VOUCHER SELECTOR
-  // ============================================================
-
   Future<void> openCheckout() async {
     if (selectedItemIds.isEmpty) {
       _showError('Pilih produk yang ingin dibeli.');
@@ -381,13 +384,13 @@ class _CartScreenState extends State<CartScreen> {
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (modalCtx, setModalState) {
             return Container(
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
                 top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 24,
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -402,8 +405,8 @@ class _CartScreenState extends State<CartScreen> {
                     children: [
                       Center(
                         child: Container(
-                          width: 45,
-                          height: 5,
+                          width: 44,
+                          height: 4,
                           decoration: BoxDecoration(
                             color: Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(20),
@@ -411,36 +414,35 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      const Text('Konfirmasi Checkout', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const Text('Konfirmasi Pembelian', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark)),
                       const SizedBox(height: 4),
-                      Text('${selectedItemIds.length} produk siap dibeli', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                      Text('${selectedItemIds.length} produk siap diproses', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                       const SizedBox(height: 18),
 
-                      // Alamat Pengiriman
-                      const Text('Alamat Pengiriman', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Text('Alamat Pengiriman', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark)),
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF7F8FA),
-                          borderRadius: BorderRadius.circular(12),
+                          color: surfaceBg,
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: Colors.grey.shade200),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.location_on_outlined, color: Color(0xFF0A8F61), size: 20),
+                            const Icon(Icons.location_on_rounded, color: Color(0xFFD97706), size: 20),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 _addressLabel,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textDark),
                               ),
                             ),
                             TextButton(
                               onPressed: () async {
-                                final selected = await Navigator.push(
+                                final dynamic selected = await Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const DaftarAlamatPage(isSelecting: true)),
                                 );
@@ -451,15 +453,14 @@ class _CartScreenState extends State<CartScreen> {
                                   });
                                 }
                               },
-                              child: const Text('Ganti', style: TextStyle(color: Color(0xFF0A8F61), fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: const Text('Ganti', style: TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 12)),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 14),
 
-                      // Metode Pembayaran
-                      const Text('Metode Pembayaran', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Text('Metode Pembayaran', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         value: paymentMethod,
@@ -476,8 +477,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Integrasi Pemilih Voucher
-                      const Text('Voucher Promo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Text('Voucher Promo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark)),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -487,14 +487,14 @@ class _CartScreenState extends State<CartScreen> {
                               textCapitalization: TextCapitalization.characters,
                               decoration: _inputDecoration(
                                 hint: 'Ketik atau pilih voucher',
-                                prefixIcon: Icons.local_offer_outlined,
+                                prefixIcon: Icons.confirmation_number_outlined,
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton.icon(
+                          ElevatedButton(
                             onPressed: () async {
-                              final result = await Navigator.push(
+                              final dynamic result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (context) => const VoucherPage()),
                               );
@@ -504,66 +504,60 @@ class _CartScreenState extends State<CartScreen> {
                                 });
                               }
                             },
-                            icon: const Icon(Icons.confirmation_number_outlined, size: 16, color: Colors.white),
-                            label: const Text('Pilih', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0A8F61),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              backgroundColor: brandYellow,
+                              foregroundColor: textDark,
                               elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
+                            child: const Text('Pilih', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
                           ),
                         ],
                       ),
                       const SizedBox(height: 14),
 
-                      // Catatan Pesanan
-                      const Text('Catatan Pesanan', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Text('Catatan Pesanan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark)),
                       const SizedBox(height: 6),
                       TextField(
                         controller: notesController,
                         maxLines: 2,
                         decoration: _inputDecoration(hint: 'Instruksi kemasan atau pengiriman...'),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
 
-                      // Subtotal
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Subtotal Pesanan', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                          const Text('Subtotal Pesanan', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
                           Text(
                             'Rp${_rupiah(selectedTotal)}',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
 
-                      // Tombol Preview & Bayar
                       SizedBox(
                         width: double.infinity,
-                        height: 50,
+                        height: 48,
                         child: ElevatedButton(
                           onPressed: isCheckingOut
                               ? null
                               : () async {
-                                  final preview = await previewCheckout();
+                                  final dynamic preview = await previewCheckout();
                                   if (preview == null || !mounted) return;
                                   await _showPreviewDialog(preview);
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0A8F61),
-                            foregroundColor: Colors.white,
+                            backgroundColor: brandYellow,
+                            foregroundColor: textDark,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
                           ),
                           child: isCheckingOut
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Text('Preview & Konfirmasi Bayar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: textDark))
+                              : const Text('Preview & Konfirmasi Bayar', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
                         ),
                       ),
                     ],
@@ -577,16 +571,16 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Future<void> _showPreviewDialog(Map<String, dynamic> preview) async {
+  Future<void> _showPreviewDialog(dynamic preview) async {
     final serverTotal = _findNumberByKeys(preview, ['grandTotal', 'finalTotal', 'totalAmount', 'total']);
     final discount = _findNumberByKeys(preview, ['discountAmount', 'discount', 'voucherDiscount']);
 
-    final confirm = await showDialog<bool>(
+    final dynamic confirm = await showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Rincian Pembayaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Text('Rincian Pembayaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textDark)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -606,11 +600,13 @@ class _CartScreenState extends State<CartScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0A8F61),
+                backgroundColor: brandYellow,
+                foregroundColor: textDark,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
               ),
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Bayar Sekarang', style: TextStyle(color: Colors.white)),
+              child: const Text('Bayar Sekarang', style: TextStyle(fontWeight: FontWeight.w900)),
             ),
           ],
         );
@@ -622,21 +618,16 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  // ============================================================
-  // BUILD & WIDGET HELPERS
-  // ============================================================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7F9),
+      backgroundColor: surfaceBg,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        title: const Text('Keranjang Saya', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        backgroundColor: brandYellow,
+        title: const Text('Keranjang Saya', style: TextStyle(fontWeight: FontWeight.w900, color: textDark, fontSize: 18)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back, color: textDark),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -644,17 +635,19 @@ class _CartScreenState extends State<CartScreen> {
             TextButton(
               onPressed: isClearing ? null : clearCart,
               child: isClearing
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Hapus Semua', style: TextStyle(color: Colors.red)),
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: textDark))
+                  : const Text('Hapus Semua', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
             ),
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: primaryNavy))
           : _allItems.isEmpty
               ? _buildEmptyCart()
               : RefreshIndicator(
                   onRefresh: fetchCart,
+                  color: textDark,
+                  backgroundColor: brandYellow,
                   child: ListView(
                     padding: const EdgeInsets.only(top: 12, bottom: 130),
                     children: [
@@ -672,12 +665,13 @@ class _CartScreenState extends State<CartScreen> {
     final allSelected = allIds.isNotEmpty && allIds.every(selectedItemIds.contains);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
           Checkbox(
             value: allSelected,
-            activeColor: const Color(0xFF0A8F61),
+            activeColor: textDark,
+            checkColor: brandYellow,
             onChanged: (value) {
               setState(() {
                 if (value == true) {
@@ -688,35 +682,45 @@ class _CartScreenState extends State<CartScreen> {
               });
             },
           ),
-          const Text('Pilih Semua Produk', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Pilih Semua Produk', style: TextStyle(fontWeight: FontWeight.bold, color: textDark)),
         ],
       ),
     );
   }
 
-  Widget _buildStoreCard(Map<String, dynamic> store) {
-    final items = List<Map<String, dynamic>>.from(store['items'] ?? []);
-    final storeIds = items.map((item) => _toInt(item['id'])).whereType<int>().toList();
-    final allStoreSelected = storeIds.isNotEmpty && storeIds.every(selectedItemIds.contains);
+  Widget _buildStoreCard(dynamic rawStore) {
+    if (rawStore is! Map) return const SizedBox.shrink();
+    final store = Map<String, dynamic>.from(rawStore);
+    final rawStoreItems = store['items'];
+    final rawList = rawStoreItems is List ? rawStoreItems : [];
+    final items = rawList.whereType().map((e) => Map<String, dynamic>.from(e)).toList();
+
+    final storeIds = items
+        .map((item) => _toInt(item['id']))
+        .whereType<int>()
+        .toList();
+
+    final bool allStoreSelected = storeIds.isNotEmpty && storeIds.every(selectedItemIds.contains);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(10, 6, 16, 6),
             child: Row(
               children: [
                 Checkbox(
                   value: allStoreSelected,
-                  activeColor: const Color(0xFF0A8F61),
+                  activeColor: textDark,
+                  checkColor: brandYellow,
                   onChanged: (value) {
                     setState(() {
                       if (value == true) {
@@ -727,25 +731,27 @@ class _CartScreenState extends State<CartScreen> {
                     });
                   },
                 ),
-                const Icon(Icons.storefront_outlined, size: 21),
+                const Icon(Icons.storefront_rounded, size: 20, color: textDark),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     store['storeName']?.toString() ?? 'Toko EcoCash',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textDark),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
-          ...items.map(_buildCartItem),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          ...items.map((it) => _buildCartItem(it)),
         ],
       ),
     );
   }
 
-  Widget _buildCartItem(Map<String, dynamic> item) {
+  Widget _buildCartItem(dynamic rawItem) {
+    if (rawItem is! Map) return const SizedBox.shrink();
+    final item = Map<String, dynamic>.from(rawItem);
     final int itemId = _toInt(item['id']) ?? 0;
     final int quantity = _toInt(item['quantity']) ?? 1;
     final product = Map<String, dynamic>.from(item['product'] ?? {});
@@ -763,7 +769,8 @@ class _CartScreenState extends State<CartScreen> {
         children: [
           Checkbox(
             value: selected,
-            activeColor: const Color(0xFF0A8F61),
+            activeColor: textDark,
+            checkColor: brandYellow,
             onChanged: (value) {
               setState(() {
                 if (value == true) {
@@ -780,14 +787,14 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 Text(
                   product['name']?.toString() ?? 'Produk Daur Ulang',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textDark),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 if (discountPrice != null) ...[
                   Text(
                     'Rp${_rupiah(normalPrice)}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Colors.grey.shade500,
                       decoration: TextDecoration.lineThrough,
                     ),
@@ -795,9 +802,9 @@ class _CartScreenState extends State<CartScreen> {
                 ],
                 Text(
                   'Rp${_rupiah(effectivePrice)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0A8F61)),
+                  style: const TextStyle(fontWeight: FontWeight.w900, color: ecoGreen, fontSize: 13),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     _quantityButton(
@@ -813,11 +820,11 @@ class _CartScreenState extends State<CartScreen> {
                             },
                     ),
                     SizedBox(
-                      width: 36,
+                      width: 34,
                       child: Center(
                         child: processing
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                            : Text(quantity.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: textDark))
+                            : Text(quantity.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
                     ),
                     _quantityButton(
@@ -829,15 +836,16 @@ class _CartScreenState extends State<CartScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               IconButton(
+                visualDensity: VisualDensity.compact,
                 onPressed: processing ? null : () => removeItem(itemId, confirmation: true),
-                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.grey, size: 20),
               ),
-              Text('Rp${_rupiah(subtotal)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Rp${_rupiah(subtotal)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: textDark)),
             ],
           ),
         ],
@@ -850,13 +858,13 @@ class _CartScreenState extends State<CartScreen> {
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 28,
+        height: 28,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, size: 16),
+        child: Icon(icon, size: 15, color: textDark),
       ),
     );
   }
@@ -865,11 +873,11 @@ class _CartScreenState extends State<CartScreen> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, -4)),
+            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, -4)),
           ],
         ),
         child: Row(
@@ -879,9 +887,8 @@ class _CartScreenState extends State<CartScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${selectedItemIds.length} item dipilih', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                  const SizedBox(height: 2),
-                  Text('Rp${_rupiah(selectedTotal)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('${selectedItemIds.length} item dipilih', style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+                  Text('Rp${_rupiah(selectedTotal)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark)),
                 ],
               ),
             ),
@@ -890,12 +897,14 @@ class _CartScreenState extends State<CartScreen> {
               child: ElevatedButton(
                 onPressed: selectedItemIds.isEmpty ? null : openCheckout,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0A8F61),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 26),
+                  backgroundColor: brandYellow,
+                  foregroundColor: textDark,
+                  disabledBackgroundColor: const Color(0xFFE2E8F0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
                 ),
-                child: const Text('Checkout', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('Checkout', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
               ),
             ),
           ],
@@ -911,30 +920,34 @@ class _CartScreenState extends State<CartScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shopping_cart_outlined, size: 70, color: Colors.grey.shade300),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: brandYellow.withOpacity(0.3), shape: BoxShape.circle),
+              child: const Icon(Icons.shopping_cart_outlined, size: 50, color: textDark),
+            ),
             const SizedBox(height: 16),
-            const Text('Keranjang masih kosong', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Keranjang masih kosong', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: textDark)),
             const SizedBox(height: 6),
-            Text('Tukarkan saldo daur ulang dengan barang pilihan Anda.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            const Text('Tukarkan saldo daur ulang dengan barang pilihan Anda.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
-  List<Map<String, dynamic>> get _stores {
+  List<dynamic> get _stores {
     final stores = cartData['stores'];
     if (stores is! List) return [];
-    return stores.map((e) => Map<String, dynamic>.from(e)).toList();
+    return stores;
   }
 
-  List<Map<String, dynamic>> get _allItems {
-    final List<Map<String, dynamic>> items = [];
+  List<dynamic> get _allItems {
+    final List<dynamic> items = [];
     for (final store in _stores) {
-      final storeItems = store['items'];
-      if (storeItems is List) {
-        for (final item in storeItems) {
-          items.add(Map<String, dynamic>.from(item));
+      if (store is Map) {
+        final storeItems = store['items'];
+        if (storeItems is List) {
+          items.addAll(storeItems);
         }
       }
     }
@@ -944,6 +957,7 @@ class _CartScreenState extends State<CartScreen> {
   num get selectedTotal {
     num total = 0;
     for (final item in _allItems) {
+      if (item is! Map) continue;
       final id = _toInt(item['id']);
       if (id == null || !selectedItemIds.contains(id)) continue;
       total += _toNum(item['subtotal']);
@@ -951,8 +965,9 @@ class _CartScreenState extends State<CartScreen> {
     return total;
   }
 
-  Set<int> _extractAllItemIds(Map<String, dynamic> data) {
+  Set<int> _extractAllItemIds(dynamic data) {
     final Set<int> ids = {};
+    if (data is! Map) return ids;
     final stores = data['stores'];
     if (stores is! List) return ids;
     for (final store in stores) {
@@ -1034,17 +1049,17 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _previewRow(String label, String value, {bool bold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
           Text(
             value,
             style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+              fontWeight: bold ? FontWeight.w900 : FontWeight.bold,
               fontSize: 13,
-              color: bold ? const Color(0xFF0A8F61) : Colors.black87,
+              color: bold ? ecoGreen : textDark,
             ),
           ),
         ],
@@ -1055,13 +1070,13 @@ class _CartScreenState extends State<CartScreen> {
   InputDecoration _inputDecoration({String? hint, IconData? prefixIcon}) {
     return InputDecoration(
       hintText: hint,
-      prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18) : null,
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18, color: textDark) : null,
       filled: true,
-      fillColor: const Color(0xFFF7F8FA),
+      fillColor: surfaceBg,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF0A8F61))),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: textDark, width: 1.5)),
     );
   }
 
@@ -1076,6 +1091,6 @@ class _CartScreenState extends State<CartScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(backgroundColor: Color(0xFF0A8F61), content: Text('Checkout berhasil')));
+      ..showSnackBar(SnackBar(backgroundColor: ecoGreen, content: Text(message)));
   }
 }

@@ -13,11 +13,12 @@ class IsiSaldoPage extends StatefulWidget {
   State<IsiSaldoPage> createState() => _IsiSaldoPageState();
 }
 
-class _IsiSaldoPageState extends State<IsiSaldoPage>
-    with WidgetsBindingObserver {
-  // ============================================================
-  // STATE
-  // ============================================================
+class _IsiSaldoPageState extends State<IsiSaldoPage> with WidgetsBindingObserver {
+  // Tema Warna Kuning Gojek EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
 
   bool _isLoadingWallet = true;
   bool _isSubmitting = false;
@@ -26,8 +27,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
   String _namaAkun = '-';
   double _balance = 0;
 
-  // Pilihan Metode Top Up
-  String _selectedCategory = 'QRIS'; // 'QRIS', 'VA', 'EWALLET'
+  String _selectedCategory = 'QRIS';
   String _selectedProvider = 'QRIS (Semua Pembayaran)';
 
   final Map<String, List<String>> _paymentMethods = {
@@ -36,9 +36,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     'EWALLET': ['GoPay', 'ShopeePay'],
   };
 
-  /// Menyimpan ID top-up terakhir untuk cek status setelah kembali dari browser
   int? _lastTopUpId;
-
   final TextEditingController _amountController = TextEditingController();
 
   final NumberFormat _currencyFormatter = NumberFormat.currency(
@@ -46,10 +44,6 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     symbol: 'Rp ',
     decimalDigits: 0,
   );
-
-  // ============================================================
-  // INIT & LIFECYCLE
-  // ============================================================
 
   @override
   void initState() {
@@ -68,17 +62,10 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed &&
-        _lastTopUpId != null &&
-        !_isSubmitting &&
-        !_isCheckingStatus) {
+    if (state == AppLifecycleState.resumed && _lastTopUpId != null && !_isSubmitting && !_isCheckingStatus) {
       _checkTopUpStatus(_lastTopUpId!);
     }
   }
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
 
   Map<String, dynamic> _extractDataMap(dynamic responseData) {
     if (responseData is! Map) return {};
@@ -98,7 +85,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     if (name.isNotEmpty) return name;
     final String username = data['username']?.toString().trim() ?? '';
     if (username.isNotEmpty) return username;
-    return 'User';
+    return 'User EcoCash';
   }
 
   double _parseNumber(dynamic value) {
@@ -127,15 +114,11 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     );
   }
 
-  // ============================================================
-  // FETCH USER + WALLET
-  // ============================================================
-
   Future<void> _fetchWalletData() async {
     try {
       if (mounted) setState(() => _isLoadingWallet = true);
 
-      final List<http.Response> responses = await Future.wait<http.Response>([
+      final List<http.Response> responses = await Future.wait([
         http.get(Uri.parse(ApiConfig.getUserProfile), headers: ApiConfig.headers),
         http.get(Uri.parse(ApiConfig.getMyWallet), headers: ApiConfig.headers),
       ]);
@@ -160,10 +143,6 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     }
   }
 
-  // ============================================================
-  // CREATE TOP UP
-  // ============================================================
-
   Future<void> _createTopUp() async {
     FocusScope.of(context).unfocus();
 
@@ -178,7 +157,6 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     try {
       setState(() => _isSubmitting = true);
 
-      // Kirim amount dan preferensi metode pembayaran yang dipilih
       final http.Response response = await http.post(
         Uri.parse(ApiConfig.createTopUp),
         headers: ApiConfig.headers,
@@ -189,12 +167,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
         }),
       );
 
-      dynamic decoded;
-      try {
-        decoded = jsonDecode(response.body);
-      } catch (_) {
-        throw Exception('Response server tidak valid.');
-      }
+      dynamic decoded = jsonDecode(response.body);
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(_getErrorMessage(decoded));
@@ -202,22 +175,18 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
 
       final Map<String, dynamic> data = _extractDataMap(decoded);
       final dynamic idValue = data['id'];
-
       if (idValue == null) throw Exception('ID top up tidak ditemukan.');
       final int? topUpId = int.tryParse(idValue.toString());
       if (topUpId == null) throw Exception('ID top up tidak valid.');
 
       _lastTopUpId = topUpId;
-
       final String mode = data['mode']?.toString().trim() ?? '';
 
-      // Mode pengujian lokal tanpa payment gateway
       if (mode == 'local-mock') {
         await _mockPayTopUp(topUpId);
         return;
       }
 
-      // Midtrans Snap Redirect
       final String redirectUrl = data['redirectUrl']?.toString().trim() ?? '';
       if (redirectUrl.isEmpty) {
         throw Exception('URL pembayaran Midtrans tidak ditemukan.');
@@ -299,14 +268,10 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     }
   }
 
-  // ============================================================
-  // BUILD UI
-  // ============================================================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: surfaceBg,
       body: RefreshIndicator(
         onRefresh: _fetchWalletData,
         child: SingleChildScrollView(
@@ -314,7 +279,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
           child: Column(
             children: [
               _buildHeader(context),
-              const SizedBox(height: 105),
+              const SizedBox(height: 100),
               _buildTopUpForm(),
               const SizedBox(height: 30),
             ],
@@ -330,36 +295,40 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 280,
+          height: 260,
           width: double.infinity,
           decoration: const BoxDecoration(
-            color: Color(0xff0BCFD1),
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFEA2E),
+                brandYellow,
+                Color(0xFFFFDF00),
+              ],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
             ),
           ),
-          padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
+          padding: const EdgeInsets.only(top: 50, left: 16, right: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.3),
-                ),
+                icon: const Icon(Icons.arrow_back, color: textDark),
               ),
-              const SizedBox(width: 15),
+              const SizedBox(width: 8),
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'Isi Saldo',
+                  'Isi Saldo Dompet',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                    color: textDark,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -367,9 +336,9 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
           ),
         ),
         Positioned(
-          top: 150,
-          left: 20,
-          right: 20,
+          top: 130,
+          left: 18,
+          right: 18,
           child: _buildBalanceCard(),
         ),
       ],
@@ -378,71 +347,53 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
 
   Widget _buildBalanceCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: const Color(0xFFD4A000).withOpacity(0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: _isLoadingWallet
           ? const SizedBox(
-              height: 110,
-              child: Center(child: CircularProgressIndicator()),
+              height: 100,
+              child: Center(child: CircularProgressIndicator(color: primaryNavy)),
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Nama Akun',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _namaAkun,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Divider(height: 1, color: Color(0xFFF0F0F0)),
-                ),
-                const Text(
-                  'Saldo Aktif',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-                const SizedBox(height: 6),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Akun EcoCash Warga', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(_namaAkun, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark)),
+                      ],
+                    ),
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff0BCFD1).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet,
-                        color: Color(0xff0BCFD1),
-                        size: 24,
-                      ),
+                      decoration: BoxDecoration(color: brandYellow.withOpacity(0.3), shape: BoxShape.circle),
+                      child: const Icon(Icons.account_balance_wallet_rounded, color: textDark, size: 22),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        _currencyFormatter.format(_balance),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Saldo Aktif Saat Ini', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      _currencyFormatter.format(_balance),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: primaryNavy),
                     ),
                   ],
                 ),
@@ -453,7 +404,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
 
   Widget _buildTopUpForm() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 18),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -467,7 +418,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
         children: [
           const Text(
             'Nominal Isi Saldo',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D3E50)),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textDark),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -476,13 +427,15 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: InputDecoration(
               prefixText: 'Rp ',
+              prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 18),
               hintText: 'Minimal 10.000',
               filled: true,
-              fillColor: const Color(0xFFF5F5F5),
+              fillColor: const Color(0xFFF8FAFC),
               contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: textDark, width: 1.5)),
             ),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 14),
@@ -496,12 +449,9 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
 
           const Divider(height: 32),
 
-          // ====================================================
-          // METODE PEMBAYARAN
-          // ====================================================
           const Text(
             'Metode Pembayaran',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D3E50)),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: textDark),
           ),
           const SizedBox(height: 6),
           const Text(
@@ -510,7 +460,6 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
           ),
           const SizedBox(height: 14),
 
-          // Tab Kategori (QRIS, Virtual Account, E-Wallet)
           Row(
             children: [
               Expanded(
@@ -528,7 +477,6 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
           ),
           const SizedBox(height: 14),
 
-          // Pilihan Provider Channel
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -537,12 +485,12 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
               return ChoiceChip(
                 label: Text(prov),
                 selected: isSelected,
-                selectedColor: const Color(0xff0BCFD1),
-                backgroundColor: const Color(0xFFF4F6F8),
+                selectedColor: brandYellow,
+                backgroundColor: const Color(0xFFF1F5F9),
                 labelStyle: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : Colors.black87,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: textDark,
                 ),
                 onSelected: (val) {
                   if (val) setState(() => _selectedProvider = prov);
@@ -552,13 +500,8 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
           ),
 
           const SizedBox(height: 14),
-
-          // Banner Penjelasan Metode
           _buildMethodInfoBanner(),
 
-          // ====================================================
-          // STATUS CHECK BUTTON
-          // ====================================================
           if (_lastTopUpId != null) ...[
             const SizedBox(height: 20),
             SizedBox(
@@ -568,9 +511,13 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
                 onPressed: _isCheckingStatus ? null : () => _checkTopUpStatus(_lastTopUpId!),
                 icon: _isCheckingStatus
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.refresh),
-                label: Text(_isCheckingStatus ? 'Memeriksa Pembayaran...' : 'Cek Status Pembayaran'),
+                    : const Icon(Icons.refresh, color: textDark),
+                label: Text(
+                  _isCheckingStatus ? 'Memeriksa Pembayaran...' : 'Cek Status Pembayaran',
+                  style: const TextStyle(color: textDark, fontWeight: FontWeight.bold),
+                ),
                 style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: textDark),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
@@ -593,23 +540,23 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xff0BCFD1).withOpacity(0.12) : const Color(0xFFF4F6F8),
+          color: isSelected ? brandYellow.withOpacity(0.3) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xff0BCFD1) : Colors.grey.shade300,
+            color: isSelected ? textDark : Colors.grey.shade300,
             width: 1.5,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 20, color: isSelected ? const Color(0xff0BCFD1) : Colors.grey),
+            Icon(icon, size: 20, color: isSelected ? textDark : Colors.grey),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? const Color(0xff0BCFD1) : Colors.black87,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: textDark,
               ),
             ),
           ],
@@ -643,7 +590,7 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: const Color(0xff0BCFD1)),
+          Icon(icon, size: 16, color: const Color(0xFFD97706)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -663,11 +610,12 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
     return ChoiceChip(
       selected: selected,
       label: Text(_currencyFormatter.format(amount)),
-      selectedColor: const Color(0xff0BCFD1),
+      selectedColor: brandYellow,
+      backgroundColor: const Color(0xFFF1F5F9),
       labelStyle: TextStyle(
         fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: selected ? Colors.white : Colors.black87,
+        fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+        color: textDark,
       ),
       onSelected: (_) {
         setState(() {
@@ -692,26 +640,27 @@ class _IsiSaldoPageState extends State<IsiSaldoPage>
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
         child: SizedBox(
           width: double.infinity,
-          height: 54,
+          height: 52,
           child: ElevatedButton(
             onPressed: enabled ? _createTopUp : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff0BCFD1),
-              disabledBackgroundColor: const Color(0xFFD3D3D3),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              backgroundColor: brandYellow,
+              disabledBackgroundColor: const Color(0xFFE2E8F0),
+              foregroundColor: textDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
             child: _isSubmitting
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: textDark),
                   )
                 : Text(
-                    enabled ? 'Bayar ${_currencyFormatter.format(amount)} via $_selectedCategory' : 'Masukkan Nominal Valid',
+                    enabled ? 'Bayar ${_currencyFormatter.format(amount)} via $_selectedCategory' : 'Masukkan Nominal Minimal 10.000',
                     style: TextStyle(
-                      color: enabled ? Colors.white : Colors.grey.shade600,
-                      fontSize: 16,
+                      color: enabled ? textDark : Colors.grey.shade500,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

@@ -15,7 +15,14 @@ class EcomerPage extends StatefulWidget {
 }
 
 class _EcomerPageState extends State<EcomerPage> {
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   late Future<List<dynamic>> _productsFuture;
+  int _cartItemCount = 0;
 
   final NumberFormat _currencyFormat = NumberFormat.currency(
     locale: 'id_ID',
@@ -27,6 +34,48 @@ class _EcomerPageState extends State<EcomerPage> {
   void initState() {
     super.initState();
     _productsFuture = _fetchProducts();
+    _fetchCartCount();
+  }
+
+  // ============================================================
+  // AMBIL TOTAL ITEM KERANJANG AKTIF DARI BACKEND
+  // ============================================================
+  Future<void> _fetchCartCount() async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.getCart),
+        headers: ApiConfig.headers,
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        int total = 0;
+        dynamic data = decoded;
+        if (decoded is Map) {
+          data = decoded['data'] ?? decoded;
+        }
+
+        if (data is Map) {
+          if (data['summary'] != null && data['summary']['totalItems'] != null) {
+            total = int.tryParse(data['summary']['totalItems'].toString()) ?? 0;
+          } else if (data['stores'] is List) {
+            for (var store in data['stores']) {
+              if (store is Map && store['items'] is List) {
+                for (var item in store['items']) {
+                  total += int.tryParse(item['quantity']?.toString() ?? '1') ?? 1;
+                }
+              }
+            }
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _cartItemCount = total;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<List<dynamic>> _fetchProducts() async {
@@ -51,29 +100,28 @@ class _EcomerPageState extends State<EcomerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: surfaceBg,
       body: Column(
         children: [
-          // Gabungkan header dan card dalam stack agar layout konsisten
           SizedBox(
-            height: 390,
+            height: 330,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 _buildHeaderSection(context),
                 Positioned(
-                  top: 150,
-                  left: 20,
-                  right: 20,
-                  child: _buildBalanceCard(context),
+                  top: 130,
+                  left: 18,
+                  right: 18,
+                  child: _buildBannerCard(context),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.only(bottom: 24),
               child: _buildMainContent(context),
             ),
           ),
@@ -84,67 +132,110 @@ class _EcomerPageState extends State<EcomerPage> {
 
   Widget _buildHeaderSection(BuildContext context) {
     return Container(
-      height: 240,
+      height: 220,
       width: double.infinity,
       decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/bg.png'),
-          fit: BoxFit.cover,
+        color: brandYellow,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.only(top: 30, left: 20, right: 20),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Back',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back, color: textDark),
               ),
-            ),
+              const SizedBox(width: 8),
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'EcoMart Daur Ulang',
+                  style: TextStyle(
+                    color: textDark,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // Ikon Keranjang dengan Badge Counter Real-time
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const CartScreen()),
+                    ).then((_) => _fetchCartCount());
+                  },
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: textDark,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.shopping_cart_rounded,
+                          color: brandYellow,
+                          size: 20,
+                        ),
+                      ),
+                      if (_cartItemCount > 0)
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                            child: Center(
+                              child: Text(
+                                _cartItemCount > 99 ? '99+' : '$_cartItemCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBalanceCard(BuildContext context) {
+  Widget _buildBannerCard(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(26),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: const Color(0xFFD4A000).withOpacity(0.14),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -154,55 +245,42 @@ class _EcomerPageState extends State<EcomerPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(
-                Icons.receipt_long,
-                size: 35,
-                color: Colors.blueAccent,
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.shopping_cart_outlined,
-                  color: Colors.blueAccent,
-                  size: 28,
-                ),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CartScreen()),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "Exchange of Goods",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "Come on, exchange your balance and get the prize you want!",
-            style: TextStyle(color: Colors.grey, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          Material(
-            color: Colors.transparent,
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: brandYellow.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.storefront_rounded, color: textDark, size: 22),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  const SizedBox(width: 10),
+                  const Text(
+                    "Tukar Saldo Barang",
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textDark),
+                  ),
+                ],
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: textDark),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
+                icon: const Icon(Icons.receipt_long_rounded, size: 16, color: textDark),
+                label: const Text("Pesanan", style: TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 12)),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const OrdersPage()),
                 ),
-                child: const Text("Lihat Riwayat Pesanan"),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            "Gunakan saldo hasil penjemputan sampah untuk mendapatkan produk ramah lingkungan pilihan.",
+            style: TextStyle(color: Colors.black54, fontSize: 12, height: 1.3),
           ),
         ],
       ),
@@ -217,7 +295,7 @@ class _EcomerPageState extends State<EcomerPage> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 50),
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(color: primaryNavy),
             ),
           );
         } else if (snapshot.hasError) {
@@ -231,15 +309,15 @@ class _EcomerPageState extends State<EcomerPage> {
 
         final products = snapshot.data ?? [];
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
+          margin: const EdgeInsets.symmetric(horizontal: 18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(15),
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 10,
-                offset: const Offset(0, 5),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -247,45 +325,48 @@ class _EcomerPageState extends State<EcomerPage> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 20,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFF7066),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  color: textDark,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
                 ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.stars, color: Colors.white, size: 20),
-                    SizedBox(width: 10),
+                child: Row(
+                  children: const [
+                    Icon(Icons.stars_rounded, color: brandYellow, size: 20),
+                    SizedBox(width: 8),
                     Text(
-                      "Attractive offer",
+                      "Katalog Pilihan EcoMart",
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(15),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 15,
-                    crossAxisSpacing: 15,
-                    childAspectRatio: 0.65,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (context, index) => _buildProductItem(
-                    context,
-                    products[index] as Map<String, dynamic>,
-                  ),
-                ),
+                padding: const EdgeInsets.all(16),
+                child: products.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(30),
+                        child: Text("Belum ada produk daur ulang tersedia", style: TextStyle(color: Colors.grey)),
+                      )
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.68,
+                        ),
+                        itemCount: products.length,
+                        itemBuilder: (context, index) => _buildProductItem(
+                          context,
+                          products[index] as Map<String, dynamic>,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -296,66 +377,80 @@ class _EcomerPageState extends State<EcomerPage> {
 
   Widget _buildProductItem(BuildContext context, Map<String, dynamic> item) {
     final num priceNum = num.tryParse(item['price'].toString()) ?? 0;
+    final String? imageUrl = item['imageUrl'] ?? item['image'];
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => DetailPage(product: item)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => DetailPage(product: item)),
+        ).then((_) => _fetchCartCount());
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: surfaceBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.shopping_cart,
-                size: 40,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item['name'] ?? 'Product',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            _currencyFormat.format(priceNum),
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF2E7D32),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            height: 30,
-            child: ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DetailPage(product: item),
+                child: Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  child: (imageUrl != null && imageUrl.startsWith('http'))
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_outlined, size: 36, color: Colors.grey),
+                        )
+                      : const Icon(Icons.shopping_bag_outlined, size: 36, color: Colors.grey),
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              child: const Text("Exchange", style: TextStyle(fontSize: 10)),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              item['name'] ?? 'Produk',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              _currencyFormat.format(priceNum),
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: ecoGreen,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 32,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => DetailPage(product: item)),
+                  ).then((_) => _fetchCartCount());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: brandYellow,
+                  foregroundColor: textDark,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Text("Tukar Sekarang", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
