@@ -15,6 +15,11 @@ class DetailPage extends StatefulWidget {
 }
 
 class _DetailPageState extends State<DetailPage> {
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   bool _isAddingToCart = false;
 
   final NumberFormat _currencyFormat = NumberFormat.currency(
@@ -49,7 +54,7 @@ class _DetailPageState extends State<DetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Berhasil ditambahkan ke keranjang!"),
-            backgroundColor: Color(0xFF2E7D32),
+            backgroundColor: ecoGreen,
           ),
         );
       } else {
@@ -78,13 +83,13 @@ class _DetailPageState extends State<DetailPage> {
     final String? imageUrl = widget.product['imageUrl'] ?? widget.product['image'];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: surfaceBg,
       body: Column(
         children: [
           _buildHeaderSection(context),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 110, 20, 20),
+              padding: const EdgeInsets.all(18),
               child: _buildProductDetailCard(imageUrl),
             ),
           ),
@@ -95,50 +100,38 @@ class _DetailPageState extends State<DetailPage> {
   }
 
   Widget _buildHeaderSection(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg.png'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: brandYellow,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back, color: textDark),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 8),
               const Text(
                 'Detail Produk',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                  color: textDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -147,62 +140,55 @@ class _DetailPageState extends State<DetailPage> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
             blurRadius: 15,
-            offset: const Offset(0, 6),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Gambar Produk
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
               height: 240,
               width: double.infinity,
-              color: const Color(0xFFF4F6F8),
+              color: surfaceBg,
               child: (imageUrl != null && imageUrl.startsWith('http'))
                   ? Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.shopping_cart_outlined, size: 70, color: Colors.grey),
+                        child: Icon(Icons.shopping_bag_outlined, size: 70, color: Colors.grey),
                       ),
                     )
                   : const Center(
-                      child: Icon(Icons.shopping_cart_outlined, size: 70, color: Colors.grey),
+                      child: Icon(Icons.shopping_bag_outlined, size: 70, color: Colors.grey),
                     ),
             ),
           ),
           const SizedBox(height: 18),
-
-          // Nama Produk
           Text(
             widget.product['name'] ?? 'Nama Produk',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark),
           ),
-          const SizedBox(height: 8),
-
-          // Format Harga Rupiah dengan Pemisah Titik
+          const SizedBox(height: 6),
           Text(
             _formatPrice(widget.product['price']),
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF2E7D32),
+              color: ecoGreen,
             ),
           ),
           const Divider(height: 28),
-
-          // Deskripsi
           const Text(
             "Deskripsi Produk",
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textDark),
           ),
           const SizedBox(height: 8),
           Text(
@@ -220,7 +206,7 @@ class _DetailPageState extends State<DetailPage> {
 
   Widget _buildBottomActionButtons(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       color: Colors.white,
       child: SafeArea(
         top: false,
@@ -228,36 +214,34 @@ class _DetailPageState extends State<DetailPage> {
           children: [
             Expanded(
               child: SizedBox(
-                height: 52,
+                height: 48,
                 child: OutlinedButton(
                   onPressed: _isAddingToCart ? null : _addToCart,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xff0BCFD1), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    side: const BorderSide(color: textDark, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   child: _isAddingToCart
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xff0BCFD1)),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: textDark),
                         )
                       : const Text(
-                          "Keranjang",
+                          "+ Keranjang",
                           style: TextStyle(
-                            color: Color(0xff0BCFD1),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            color: textDark,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
                           ),
                         ),
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: SizedBox(
-                height: 52,
+                height: 48,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.push(
@@ -268,17 +252,15 @@ class _DetailPageState extends State<DetailPage> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
+                    backgroundColor: brandYellow,
+                    foregroundColor: textDark,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   child: const Text(
                     "Beli Sekarang",
                     style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                       fontSize: 14,
                     ),
                   ),

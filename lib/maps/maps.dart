@@ -15,7 +15,13 @@ class Maps extends StatefulWidget {
 }
 
 class _MapsState extends State<Maps> {
-  final Color primary = const Color(0xFF4DB67D);
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color ecoGreen = Color(0xFF00AA13);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   LatLng _currentLocation = const LatLng(-6.9175, 107.6191); // Default Kota Bandung
 
   final MapController _mapController = MapController();
@@ -26,7 +32,6 @@ class _MapsState extends State<Maps> {
   bool _isShowingDetail = false;
   Map<String, dynamic>? _selectedMachine;
 
-  // Filter Chip Aktif: 'ALL', 'AVAILABLE', 'NEARBY'
   String _activeFilter = 'ALL';
   String _searchQuery = '';
 
@@ -99,8 +104,6 @@ class _MapsState extends State<Maps> {
         fetched = decoded['data'] is List ? decoded['data'] : [];
       }
 
-      // Fallback Cerdas: Jika GPS pengguna berada di luar radius ST_DWithin backend,
-      // ambil seluruh mesin aktif publik dan hitung jarak Haversine dari titik user
       if (fetched.isEmpty) {
         final publicRes = await http.get(
           Uri.parse(ApiConfig.getPublicMachines),
@@ -156,7 +159,6 @@ class _MapsState extends State<Maps> {
       final String status = (m['status'] ?? '').toString().toUpperCase();
       final String fill = (m['fillLevel'] ?? '').toString().toUpperCase();
 
-      // Filter Pencarian Teks
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         if (!name.contains(q) && !place.contains(q) && !addr.contains(q)) {
@@ -164,7 +166,6 @@ class _MapsState extends State<Maps> {
         }
       }
 
-      // Filter Kategori Chip
       if (_activeFilter == 'AVAILABLE') {
         if (status != 'OPERATING' || fill == 'FULL') return false;
       }
@@ -195,9 +196,9 @@ class _MapsState extends State<Maps> {
   }
 
   Color _getMarkerStatusColor(String status, String fillLevel) {
-    if (status != 'OPERATING') return const Color(0xFFF57C00); // Maintenance
-    if (fillLevel == 'FULL') return const Color(0xFFC62828); // Penuh
-    return const Color(0xFF2E7D32); // Siap pakai
+    if (status != 'OPERATING') return const Color(0xFFD97706);
+    if (fillLevel == 'FULL') return const Color(0xFFDC2626);
+    return ecoGreen;
   }
 
   String _formatDistance(dynamic val) {
@@ -220,11 +221,11 @@ class _MapsState extends State<Maps> {
         alignment: Alignment.center,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.2),
+            color: const Color(0xFF0284C7).withOpacity(0.2),
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: Icon(Icons.my_location, color: Colors.blue, size: 24),
+            child: Icon(Icons.my_location, color: Color(0xFF0284C7), size: 24),
           ),
         ),
       ),
@@ -253,18 +254,18 @@ class _MapsState extends State<Maps> {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: pinColor,
+                    color: isSelected ? brandYellow : pinColor,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2.5),
+                    border: Border.all(color: textDark, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: pinColor.withOpacity(0.4),
-                        blurRadius: 8,
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.recycling_rounded, color: Colors.white, size: 20),
+                  child: Icon(Icons.inventory_2_rounded, color: isSelected ? textDark : Colors.white, size: 20),
                 ),
               ],
             ),
@@ -294,30 +295,32 @@ class _MapsState extends State<Maps> {
           // Tombol Kembali
           Positioned(
             top: 50,
-            left: 15,
+            left: 16,
             child: FloatingActionButton(
-              heroTag: "btn_back",
+              heroTag: "btn_back_map",
               mini: true,
               backgroundColor: Colors.white,
+              elevation: 4,
               onPressed: () => Navigator.pop(context),
-              child: const Icon(Icons.arrow_back, color: Colors.black87),
+              child: const Icon(Icons.arrow_back, color: textDark),
             ),
           ),
 
           // Tombol Reset Lokasi GPS
           Positioned(
             top: 50,
-            right: 15,
+            right: 16,
             child: FloatingActionButton(
-              heroTag: "btn_gps",
+              heroTag: "btn_gps_map",
               mini: true,
               backgroundColor: Colors.white,
+              elevation: 4,
               onPressed: _determinePosition,
-              child: const Icon(Icons.gps_fixed, color: Color(0xFF4285F4)),
+              child: const Icon(Icons.gps_fixed, color: textDark),
             ),
           ),
 
-          // Bottom Sheet Daftar Mesin & Status
+          // Bottom Sheet Daftar Mesin
           DraggableScrollableSheet(
             initialChildSize: 0.38,
             minChildSize: 0.16,
@@ -332,10 +335,10 @@ class _MapsState extends State<Maps> {
                   children: [
                     Container(
                       margin: const EdgeInsets.symmetric(vertical: 10),
-                      height: 5,
-                      width: 44,
+                      height: 4,
+                      width: 42,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -362,7 +365,7 @@ class _MapsState extends State<Maps> {
   Widget _buildMainList(ScrollController controller, List<dynamic> filtered) {
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       itemCount: _isLoading ? 3 : filtered.length + 2,
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -370,26 +373,30 @@ class _MapsState extends State<Maps> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: primary,
+                  color: brandYellow,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 22),
-                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: textDark, borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.inventory_2_rounded, color: brandYellow, size: 20),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'Smart Container Terdekat',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 15),
                           ),
                           Text(
-                            '${filtered.length} kontainer ditemukan aktif di sekitar Anda',
-                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                            '${filtered.length} titik kontainer aktif siap menampung',
+                            style: const TextStyle(color: textDark, fontSize: 11, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -397,7 +404,7 @@ class _MapsState extends State<Maps> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
             ],
           );
         }
@@ -408,9 +415,9 @@ class _MapsState extends State<Maps> {
               TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Cari kontainer, stasiun, jalan...',
+                  hintText: 'Cari nama stasiun, plaza, jalan...',
                   hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: textDark),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -421,28 +428,32 @@ class _MapsState extends State<Maps> {
                         )
                       : null,
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: surfaceBg,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: const BorderSide(color: textDark, width: 1.5),
                   ),
                 ),
                 onChanged: (val) {
                   setState(() => _searchQuery = val.trim());
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _chip('Semua', 'ALL', Icons.apps),
-                    _chip('Siap Pakai', 'AVAILABLE', Icons.check_circle_outline),
+                    _chip('Semua Kontainer', 'ALL', Icons.apps_rounded),
+                    _chip('Siap Pakai (Operating)', 'AVAILABLE', Icons.check_circle_rounded),
                   ],
                 ),
               ),
-              const Divider(height: 28),
+              const Divider(height: 24),
             ],
           );
         }
@@ -451,7 +462,7 @@ class _MapsState extends State<Maps> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(color: primaryNavy),
             ),
           );
         }
@@ -483,27 +494,30 @@ class _MapsState extends State<Maps> {
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
+            ],
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             leading: CircleAvatar(
-              backgroundColor: statusColor.withOpacity(0.12),
-              child: Icon(Icons.recycling_rounded, color: statusColor, size: 22),
+              backgroundColor: brandYellow.withOpacity(0.35),
+              child: const Icon(Icons.inventory_2_rounded, color: textDark, size: 20),
             ),
             title: Row(
               children: [
                 Expanded(
                   child: Text(
                     name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textDark),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   distStr,
-                  style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: const TextStyle(color: ecoGreen, fontWeight: FontWeight.w900, fontSize: 12),
                 ),
               ],
             ),
@@ -533,14 +547,14 @@ class _MapsState extends State<Maps> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Status: $fill',
+                      'Terisi: $fill',
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
                     ),
                   ],
                 ),
               ],
             ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+            trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
             onTap: () => _openDetail(machine),
           ),
         );
@@ -556,23 +570,23 @@ class _MapsState extends State<Maps> {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: active ? primary.withOpacity(0.15) : Colors.white,
+          color: active ? brandYellow : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: active ? primary : Colors.grey.shade300,
+            color: active ? textDark : Colors.grey.shade300,
             width: active ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 15, color: active ? primary : Colors.grey),
+            Icon(icon, size: 15, color: textDark),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: active ? primary : Colors.grey.shade700,
+                color: textDark,
                 fontSize: 12,
-                fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                fontWeight: active ? FontWeight.w900 : FontWeight.w600,
               ),
             ),
           ],

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:ecocash_indonesia/ipconfig.dart';
-// import 'package:ecocash_indonesia/Auth/login.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -14,6 +13,10 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
+  // Palet Warna Gojek-Inspired EcoCash
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+
   // ============================================================
   // CONTROLLER
   // ============================================================
@@ -253,14 +256,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           child: Container(
             width: 90,
             height: 90,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE8F5E9),
+            decoration: BoxDecoration(
+              color: brandYellow.withOpacity(0.25),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.lock_reset_outlined,
               size: 48,
-              color: Color(0xFF2E7D32),
+              color: textDark,
             ),
           ),
         ),
@@ -331,7 +334,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(
-                color: Color(0xFF2E7D32),
+                color: textDark,
                 width: 1.5,
               ),
             ),
@@ -350,8 +353,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             onPressed: _isLoading ? null : _requestPasswordReset,
 
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-
+              backgroundColor: brandYellow,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -363,13 +366,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Colors.white,
+                      color: textDark,
                     ),
                   )
                 : const Text(
                     'Kirim Link Reset Password',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: textDark,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -389,12 +392,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             icon: const Icon(
               Icons.arrow_back,
               size: 18,
-              color: Color(0xFF2E7D32),
+              color: textDark,
             ),
             label: const Text(
               'Kembali ke Login',
               style: TextStyle(
-                color: Color(0xFF2E7D32),
+                color: textDark,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -428,14 +431,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         Container(
           width: 100,
           height: 100,
-          decoration: const BoxDecoration(
-            color: Color(0xFFE8F5E9),
+          decoration: BoxDecoration(
+            color: brandYellow.withOpacity(0.25),
             shape: BoxShape.circle,
           ),
           child: const Icon(
             Icons.mark_email_read_outlined,
             size: 55,
-            color: Color(0xFF2E7D32),
+            color: textDark,
           ),
         ),
 
@@ -472,7 +475,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           email,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Color(0xFF2E7D32),
+            color: textDark,
             fontWeight: FontWeight.bold,
             fontSize: 15,
           ),
@@ -525,7 +528,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             onPressed: _isLoading ? null : _requestPasswordReset,
 
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF2E7D32)),
+              side: const BorderSide(color: textDark),
 
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -538,13 +541,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF2E7D32),
+                      color: textDark,
                     ),
                   )
                 : const Text(
                     'Kirim Ulang Email',
                     style: TextStyle(
-                      color: Color(0xFF2E7D32),
+                      color: textDark,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -563,8 +566,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             onPressed: _goToLogin,
 
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-
+              backgroundColor: brandYellow,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -573,7 +576,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             child: const Text(
               'Kembali ke Login',
               style: TextStyle(
-                color: Colors.white,
+                color: textDark,
                 fontWeight: FontWeight.bold,
               ),
             ),

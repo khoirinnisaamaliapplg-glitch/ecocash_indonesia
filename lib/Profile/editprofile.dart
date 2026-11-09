@@ -13,6 +13,11 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  static const Color brandYellow = Color(0xFFFFE600);
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color primaryNavy = Color(0xFF0F2C59);
+  static const Color surfaceBg = Color(0xFFF7F8FA);
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
 
@@ -72,7 +77,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profil berhasil diperbarui'),
-            backgroundColor: Color(0xFF2E7D32),
+            backgroundColor: Color(0xFF00AA13),
           ),
         );
         Navigator.pop(context, true);
@@ -96,7 +101,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: isError ? Colors.red : const Color(0xFF2E7D32),
+          backgroundColor: isError ? Colors.red : const Color(0xFF00AA13),
         ),
       );
   }
@@ -104,14 +109,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: surfaceBg,
       body: Column(
         children: [
           _buildHeader(context),
           Expanded(
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 32),
               child: _buildFormCard(),
             ),
           ),
@@ -124,10 +129,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: Color(0xFFE53935),
-        image: DecorationImage(
-          image: AssetImage('assets/bg.png'),
-          fit: BoxFit.cover,
+        color: brandYellow,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
       child: SafeArea(
@@ -138,13 +143,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               IconButton(
                 onPressed: _isLoading ? null : () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 21),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: textDark, size: 21),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               const Expanded(
                 child: Text(
                   'Edit Profil',
-                  style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: textDark, fontSize: 21, fontWeight: FontWeight.w900),
                 ),
               ),
             ],
@@ -157,29 +162,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildFormCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 18, offset: const Offset(0, 6)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildProfileAvatar(),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
           const Text(
             'Informasi Pribadi',
-            style: TextStyle(color: Color(0xFF212121), fontSize: 17, fontWeight: FontWeight.w700),
+            style: TextStyle(color: textDark, fontSize: 17, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           const Text(
             'Perbarui nama dan alamat email akun Anda.',
-            style: TextStyle(color: Color(0xFF757575), fontSize: 13, height: 1.4),
+            style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           _buildInputLabel('Nama Lengkap'),
           const SizedBox(height: 8),
           _buildTextField(
@@ -189,7 +194,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.name,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           _buildInputLabel('Email'),
           const SizedBox(height: 8),
           _buildTextField(
@@ -202,7 +207,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               if (!_isLoading) _updateProfile();
             },
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           _buildSaveButton(),
         ],
       ),
@@ -210,21 +215,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _buildProfileAvatar() {
+    final String initial = (_nameController.text.trim().isNotEmpty)
+        ? _nameController.text.trim()[0].toUpperCase()
+        : 'W';
+
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(5),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE8E8E8)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4)),
+            BoxShadow(color: const Color(0xFFD4A000).withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 4)),
           ],
         ),
-        child: const CircleAvatar(
-          radius: 46,
-          backgroundColor: Color(0xFFF1F3F5),
-          child: Icon(Icons.person_rounded, size: 54, color: Color(0xFF9E9E9E)),
+        child: CircleAvatar(
+          radius: 42,
+          backgroundColor: brandYellow.withOpacity(0.35),
+          child: Text(
+            initial,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 30, color: primaryNavy),
+          ),
         ),
       ),
     );
@@ -233,7 +244,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildInputLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(color: Color(0xFF424242), fontSize: 14, fontWeight: FontWeight.w600),
+      style: const TextStyle(color: textDark, fontSize: 13, fontWeight: FontWeight.bold),
     );
   }
 
@@ -251,25 +262,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
-      style: const TextStyle(color: Color(0xFF212121), fontSize: 15, fontWeight: FontWeight.w500),
+      style: const TextStyle(color: textDark, fontSize: 14, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-        prefixIcon: Icon(icon, color: const Color(0xFF757575), size: 22),
+        hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+        prefixIcon: Icon(icon, color: Colors.grey.shade600, size: 20),
         filled: true,
-        fillColor: const Color(0xFFF7F9FB),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.5),
+          borderSide: const BorderSide(color: textDark, width: 1.5),
         ),
       ),
     );
@@ -278,28 +285,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildSaveButton() {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: 50,
       child: ElevatedButton(
         onPressed: _isLoading ? null : _updateProfile,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFE53935),
-          disabledBackgroundColor: const Color(0xFFEF9A9A),
-          foregroundColor: Colors.white,
+          backgroundColor: brandYellow,
+          foregroundColor: textDark,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: _isLoading
             ? const SizedBox(
-                width: 23,
-                height: 23,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(color: textDark, strokeWidth: 2),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.save_outlined, size: 20),
-                  SizedBox(width: 10),
-                  Text('Simpan Perubahan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  Icon(Icons.save_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Simpan Perubahan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
                 ],
               ),
       ),
