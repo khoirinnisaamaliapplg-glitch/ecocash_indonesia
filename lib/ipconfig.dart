@@ -178,4 +178,22 @@ class ApiConfig {
 
   static String getJobChat(dynamic jobId) => '$baseUrl/jobs/$jobId/messages';
   static String sendJobChat(dynamic jobId) => '$baseUrl/jobs/$jobId/messages';
+
+  // ============================================================
+  // PUSAT BANTUAN, EDUKASI, TIKET & CHATBOT
+  // ============================================================
+
+  static String get getFaqs => '$baseUrl/faqs';
+  static String getFaqById(int id) => '$baseUrl/faqs/$id';
+
+  static String get getRecycleMaterialGuides => '$baseUrl/recycle-materials';
+  static String get getPublicNews => '$baseUrl/public/news';
+  static String getPublicNewsBySlug(String slug) => '$baseUrl/public/news/$slug';
+
+  static String get createTicket => '$baseUrl/tickets';
+  static String get getMyTickets => '$baseUrl/tickets/me';
+  static String getTicketById(int id) => '$baseUrl/tickets/$id';
+
+  static String get getBotTree => '$baseUrl/bot/tree';
+  static String get getNotifications => '$baseUrl/notifications';
 }
