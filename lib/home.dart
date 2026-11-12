@@ -14,6 +14,7 @@ import 'package:ecocash_indonesia/setor_sampah/scan.dart';
 import 'package:ecocash_indonesia/tf/transfer.dart';
 import 'package:ecocash_indonesia/voucher/voucher.dart';
 import 'package:ecocash_indonesia/pickupwaste/pickup_waste.dart';
+import 'package:ecocash_indonesia/pusat_bantuan/pusat_bantuan_page.dart';
 
 // Alias tipe data agar kebal error copy-paste
 typedef UserDataMap = Map<String, dynamic>;
@@ -1051,11 +1052,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ListTile(
                 leading: const Icon(Icons.help_center_rounded, color: ecoGreen),
                 title: const Text('Pusat Bantuan & Edukasi', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Panduan pemilahan jenis sampah'),
+                subtitle: const Text('FAQ, panduan pemilahan sampah & tiket pengaduan'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.pop(ctx);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const DonationPage()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const PusatBantuanPage()),
+                  );
                 },
               ),
             ],
