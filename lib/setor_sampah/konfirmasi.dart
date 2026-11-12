@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/setor_sampah/transaksi.dart';
 
-// Alias tipe agar kebal terhadap error copy-paste kurung bertingkat
 typedef WasteItemMap = Map<String, dynamic>;
 
 class SetorSampahScreen extends StatefulWidget {
@@ -31,17 +31,18 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
 
   bool _isLoading = false;
   bool _isReadyToConfirm = false;
+  bool _isSocketConnected = false;
   String _statusMesin = "Silakan masukkan botol/sampah Anda ke lubang mesin...";
-  Timer? _timer;
+
+  IO.Socket? _socket;
+  Timer? _fallbackTimer;
 
   List<WasteItemMap> _wasteItems = [];
+  final Set<int> _seenItemIds = {};
   double _currentTotalWeight = 0.0;
   double _currentTotalPrice = 0.0;
   String? _machineName;
   String? _machineCode;
-
-  int _secondsElapsed = 0;
-  final int _maxSeconds = 600;
 
   @override
   void initState() {
@@ -49,13 +50,134 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
     if (widget.initialSessionData != null) {
       _applySessionData(widget.initialSessionData!);
     }
-    _startPolling();
+    _initSessionSocket();
+    _syncSessionSnapshot();
+    _startFallbackSync();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _fallbackTimer?.cancel();
+    _disposeSocket();
     super.dispose();
+  }
+
+  void _disposeSocket() {
+    if (_socket != null) {
+      _socket!.off('connect');
+      _socket!.off('disconnect');
+      _socket!.off('ready');
+      _socket!.off('session:item');
+      _socket!.off('session:state');
+      _socket!.disconnect();
+      _socket!.dispose();
+      _socket = null;
+    }
+  }
+
+  void _initSessionSocket() {
+    final token = ApiConfig.userToken?.trim() ?? '';
+    if (token.isEmpty) return;
+
+    _disposeSocket();
+
+    final socket = IO.io(
+      ApiConfig.socketUrl,
+      IO.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': token})
+          .disableAutoConnect()
+          .enableReconnection()
+          .build(),
+    );
+
+    socket.onConnect((_) {
+      if (mounted) setState(() => _isSocketConnected = true);
+      // Sinkronkan snapshot satu kali saat reconnect agar tidak ada item tertinggal
+      _syncSessionSnapshot();
+    });
+
+    socket.onDisconnect((_) {
+      if (mounted) setState(() => _isSocketConnected = false);
+    });
+
+    // Event live setiap kali user memasukkan sampah ke mesin RVM
+    socket.on('session:item', (payload) {
+      if (!mounted || payload is! Map) return;
+      final int? eventSessionId = int.tryParse((payload['sessionId'] ?? '').toString());
+      if (eventSessionId != null && eventSessionId != widget.sessionId) return;
+
+      final dynamic rawItem = payload['item'];
+      if (rawItem is! Map) return;
+
+      final int? itemId = int.tryParse((rawItem['id'] ?? payload['seq'] ?? '').toString());
+      if (itemId != null && _seenItemIds.contains(itemId)) return;
+
+      String typeName = 'Material';
+      if (rawItem['wasteType'] is Map) {
+        typeName = rawItem['wasteType']['name']?.toString() ?? 'Material';
+      } else if (rawItem['wasteType'] != null) {
+        typeName = rawItem['wasteType'].toString();
+      }
+
+      final double itemWeight = double.tryParse((rawItem['weight'] ?? 0).toString()) ?? 0.0;
+      final double itemPrice = double.tryParse((rawItem['totalPrice'] ?? 0).toString()) ?? 0.0;
+
+      HapticFeedback.lightImpact();
+
+      setState(() {
+        if (itemId != null) _seenItemIds.add(itemId);
+        _wasteItems.add({
+          if (itemId != null) 'id': itemId,
+          'wasteType': typeName,
+          'weight': itemWeight.toString(),
+          'totalPrice': itemPrice.toString(),
+          'pricePerKg': (rawItem['pricePerKg'] ?? '0').toString(),
+        });
+        _currentTotalWeight = double.parse((_currentTotalWeight + itemWeight).toStringAsFixed(2));
+        _currentTotalPrice += itemPrice;
+        if (!_isReadyToConfirm) {
+          _statusMesin = "Item diterima! Masukkan sampah berikutnya atau tekan Selesai di mesin.";
+        }
+      });
+    });
+
+    // Event live perubahan status sesi (WAITING_CONFIRMATION / CANCELLED / COMPLETED)
+    socket.on('session:state', (payload) {
+      if (!mounted || payload is! Map) return;
+      final int? eventSessionId = int.tryParse((payload['sessionId'] ?? '').toString());
+      if (eventSessionId != null && eventSessionId != widget.sessionId) return;
+
+      final String status = (payload['status'] ?? '').toString().trim().toUpperCase();
+      final dynamic summary = payload['summary'];
+
+      if (status == 'WAITING_CONFIRMATION') {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _isReadyToConfirm = true;
+          _statusMesin = "Mesin selesai menimbang! Silakan konfirmasi untuk menerima saldo.";
+          if (summary is Map) {
+            final w = double.tryParse((summary['currentWeight'] ?? '').toString());
+            final p = double.tryParse((summary['totalPrice'] ?? '').toString());
+            if (w != null) _currentTotalWeight = w;
+            if (p != null) _currentTotalPrice = p;
+          }
+        });
+      } else if (status == 'CANCELLED') {
+        _fallbackTimer?.cancel();
+        _disposeSocket();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sesi penyetoran dibatalkan atau berakhir karena tidak ada aktivitas.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    });
+
+    socket.connect();
+    _socket = socket;
   }
 
   void _applySessionData(WasteItemMap data) {
@@ -73,9 +195,13 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
     }
 
     setState(() {
+      _seenItemIds.clear();
       _wasteItems = items.map<WasteItemMap>((item) {
         String typeName = 'Material';
         if (item is Map) {
+          final int? itemId = int.tryParse((item['id'] ?? '').toString());
+          if (itemId != null) _seenItemIds.add(itemId);
+
           if (item['wasteType'] is Map) {
             typeName = item['wasteType']['name'] ?? 'Material';
           } else if (item['wasteType'] != null) {
@@ -83,6 +209,7 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
           }
 
           return {
+            if (itemId != null) 'id': itemId,
             'wasteType': typeName,
             'weight': (item['weight'] ?? '0').toString(),
             'totalPrice': (item['totalPrice'] ?? '0').toString(),
@@ -101,50 +228,48 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
       _currentTotalPrice = totalPrice;
 
       if (status == 'WAITING_CONFIRMATION') {
+        if (!_isReadyToConfirm) HapticFeedback.heavyImpact();
         _isReadyToConfirm = true;
         _statusMesin = "Mesin selesai menimbang! Silakan konfirmasi untuk menerima saldo.";
       } else if (status == 'ACTIVE') {
         _statusMesin = _wasteItems.isEmpty
             ? "Pintu mesin terbuka. Masukkan botol/sampah Anda..."
-            : "Sedang menimbang muatan sampah...";
+            : "Item diterima! Masukkan sampah berikutnya atau tekan Selesai di mesin.";
       }
     });
   }
 
-  void _startPolling() {
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      _secondsElapsed += 2;
-      if (!mounted || _secondsElapsed >= _maxSeconds) {
-        timer.cancel();
-        return;
-      }
+  Future<void> _syncSessionSnapshot() async {
+    if (!mounted) return;
+    try {
+      var response = await http.get(
+        Uri.parse(ApiConfig.getSessionDetail(widget.sessionId.toString())),
+        headers: ApiConfig.headers,
+      );
 
-      try {
-        var response = await http.get(
+      if (response.statusCode != 200) {
+        response = await http.get(
           Uri.parse(ApiConfig.getCurrentSession),
           headers: ApiConfig.headers,
         );
+      }
 
-        if (response.statusCode != 200) {
-          response = await http.get(
-            Uri.parse(ApiConfig.getSessionDetail(widget.sessionId.toString())),
-            headers: ApiConfig.headers,
-          );
+      if (response.statusCode == 200 && mounted) {
+        final body = jsonDecode(response.body);
+        final dynamic data = body['data'];
+        if (data is Map) {
+          _applySessionData(Map<String, dynamic>.from(data));
         }
+      }
+    } catch (_) {}
+  }
 
-        if (response.statusCode == 200 && mounted) {
-          final body = jsonDecode(response.body);
-          final dynamic data = body['data'];
-          if (data is Map) {
-            final WasteItemMap sessionData = Map<String, dynamic>.from(data);
-            _applySessionData(sessionData);
-            if ((sessionData['status'] ?? '').toString().toUpperCase() == 'WAITING_CONFIRMATION' && !_isReadyToConfirm) {
-              HapticFeedback.heavyImpact();
-              setState(() => _isReadyToConfirm = true);
-            }
-          }
-        }
-      } catch (_) {}
+  void _startFallbackSync() {
+    _fallbackTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      if (!_isSocketConnected) {
+        _syncSessionSnapshot();
+      }
     });
   }
 
@@ -161,13 +286,16 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        _timer?.cancel();
+        _fallbackTimer?.cancel();
+        _disposeSocket();
         final dynamic confirmData = body['data'] ?? {};
 
         final WasteItemMap successPayload = {
           'sessionId': widget.sessionId.toString(),
           'earned': confirmData['earned']?.toString() ?? _currentTotalPrice.toStringAsFixed(0),
           'balance': confirmData['balance']?.toString() ?? '0',
+          'pointsEarned': confirmData['pointsEarned']?.toString() ?? '0',
+          'pointsBalance': confirmData['pointsBalance']?.toString() ?? '0',
           'totalWeight': _currentTotalWeight.toStringAsFixed(2),
           'machineName': _machineName ?? 'Smart Container',
           'machineCode': _machineCode ?? '',
@@ -201,8 +329,45 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: textDark),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            _fallbackTimer?.cancel();
+            _disposeSocket();
+            Navigator.pop(context);
+          },
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isSocketConnected ? const Color(0xFFDCFCE7) : Colors.white70,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: _isSocketConnected ? ecoGreen : Colors.orange,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isSocketConnected ? 'LIVE' : 'SYNC',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: _isSocketConnected ? ecoGreen : Colors.orange.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18.0),
@@ -238,7 +403,6 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
               ),
             ),
             const SizedBox(height: 18),
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -264,7 +428,6 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
                     ],
                   ),
                   const Divider(height: 24),
-
                   if (_wasteItems.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20.0),
@@ -284,7 +447,6 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
                         ),
                       );
                     }),
-
                   const Divider(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
