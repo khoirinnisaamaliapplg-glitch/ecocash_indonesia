@@ -8,6 +8,7 @@ import 'package:ecocash_indonesia/ecomer/ecomer.dart';
 import 'package:ecocash_indonesia/history/refund.dart';
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/maps/maps.dart';
+import 'package:ecocash_indonesia/poin/ecopoints_page.dart';
 import 'package:ecocash_indonesia/profile/profile.dart';
 import 'package:ecocash_indonesia/saldo/saldo.dart';
 import 'package:ecocash_indonesia/setor_sampah/scan.dart';
@@ -16,7 +17,6 @@ import 'package:ecocash_indonesia/voucher/voucher.dart';
 import 'package:ecocash_indonesia/pickupwaste/pickup_waste.dart';
 import 'package:ecocash_indonesia/pusat_bantuan/pusat_bantuan_page.dart';
 
-// Alias tipe data agar kebal error copy-paste
 typedef UserDataMap = Map<String, dynamic>;
 
 class HomeScreen extends StatefulWidget {
@@ -27,7 +27,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Palet Warna Identitas EcoCash x Gojek Theme
   static const Color brandYellow = Color(0xFFFFE600);
   static const Color brandYellowDark = Color(0xFFF5D000);
   static const Color textDark = Color(0xFF1C1C1E);
@@ -43,10 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _userDataFuture = _fetchUserData();
   }
-
-  // ============================================================
-  // FETCH PROFILE + WALLET + CARBON (LOGIKA BE UTUH 100%)
-  // ============================================================
 
   Future<UserDataMap> _fetchUserData() async {
     final List<http.Response> responses = await Future.wait([
@@ -80,6 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return {
       ...walletData,
       ...profileData,
+      'points': walletData['points'] ?? 0,
+      'lifetimePoints': walletData['lifetimePoints'] ?? 0,
+      'tier': walletData['tier'] ?? 'EcoStarter',
       'carbon': carbonData['totalSavedKg'] ?? 0,
       'carbonUnit': carbonData['unit'] ?? 'kg CO2e',
       'carbonChange': carbonData['changePercent'] ?? 0,
@@ -214,12 +212,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ============================================================
-  // 1. HEADER KUNING GOJEK (Search Bar + Banner Presisi + Wallet)
-  // ============================================================
-
   Widget _buildGojekStyleHeader(BuildContext context, UserDataMap data) {
     final String username = _getUserName(data);
+    final String memberTier = data['tier']?.toString() ?? 'EcoStarter';
 
     return Container(
       decoration: const BoxDecoration(
@@ -235,7 +230,6 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           child: Column(
             children: [
-              // Search Bar + Member Pill + Profile Avatar
               Row(
                 children: [
                   Expanded(
@@ -247,14 +241,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Row(
-                        children: const [
+                      child: const Row(
+                        children: [
                           Icon(Icons.search, color: Colors.grey, size: 20),
                           SizedBox(width: 8),
                           Expanded(
@@ -269,19 +263,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 18),
-                        SizedBox(width: 4),
-                        Text('Member', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark)),
-                      ],
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EcoPointsPage()),
+                      ).then((_) => _refreshData());
+                    },
+                    child: Container(
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            memberTier,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -307,15 +312,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 14),
-
-              // Hero Banner Ilustrasi Lengkap (Gedung Sate, Kurir, Smart Container, Pasupati)
               _buildHeroIllustrationBanner(context, username),
-
               const SizedBox(height: 14),
-
-              // Compact Gojek/GoPay-style Wallet Card
               _buildGojekWalletCard(context, data),
             ],
           ),
@@ -323,10 +322,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // HERO BANNER UTUH TANPA TERPOTONG
-  // ============================================================
 
   Widget _buildHeroIllustrationBanner(BuildContext context, String username) {
     return GestureDetector(
@@ -344,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -354,14 +349,12 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Menghitung lebar ilustrasi agar Gedung Sate tidak terpotong
               final double illustrationWidth = constraints.maxWidth > 380
                   ? 285.0
                   : (constraints.maxWidth * 0.74).clamp(230.0, 285.0);
 
               return Stack(
                 children: [
-                  // 1. Gambar Ilustrasi Lengkap di Sisi Kanan (Gedung Sate, Balon Dialog, Kurir, Mesin, Jembatan)
                   Positioned(
                     right: 0,
                     top: 0,
@@ -386,7 +379,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        // Gradasi halus di tepi kiri gambar agar menyatu mulus dengan kartu putih tanpa garis hitam
                         Positioned(
                           left: 0,
                           top: 0,
@@ -399,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 end: Alignment.centerRight,
                                 colors: [
                                   Colors.white,
-                                  Colors.white.withOpacity(0.0),
+                                  Colors.white.withValues(alpha: 0.0),
                                 ],
                               ),
                             ),
@@ -408,8 +400,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-
-                  // 2. Konten Teks di Sisi Kiri
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
                     child: Column(
@@ -422,9 +412,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: brandYellow,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Icon(Icons.eco_rounded, color: textDark, size: 12),
                               SizedBox(width: 4),
                               Text(
@@ -466,9 +456,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: textDark,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Text(
                                 'Setor Sampah',
                                 style: TextStyle(color: brandYellow, fontSize: 10, fontWeight: FontWeight.bold),
@@ -490,10 +480,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ============================================================
-  // 2. KARTU SALDO COMPACT (Gojek Pay Style)
-  // ============================================================
-
   Widget _buildGojekWalletCard(BuildContext context, UserDataMap data) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -502,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -515,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: gopayBlue.withOpacity(0.12),
+                  color: gopayBlue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.account_balance_wallet, color: gopayBlue, size: 22),
@@ -543,9 +529,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ecoGreen),
                         ),
                         const Text(' • ', style: TextStyle(color: Colors.grey)),
-                        Text(
-                          '${data['points'] ?? '0'} poin',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFEAB308)),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const EcoPointsPage()),
+                            ).then((_) => _refreshData());
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${_formatBalance(data['points'] ?? 0)} poin',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFD97706),
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right, size: 14, color: Color(0xFFD97706)),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -615,10 +620,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ============================================================
-  // 3. ICON GRID 4x2 KHAS GOJEK (Layanan Utama & Badge)
-  // ============================================================
-
   Widget _buildGojekServiceGrid(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -627,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -695,9 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 18),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -817,10 +816,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ============================================================
-  // 4. STRIP BANNER ECOCASH PLUS (Gojek Discover PLUS Style)
-  // ============================================================
-
   Widget _buildEcoCashPlusBanner(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -841,10 +836,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 16),
           ),
           const SizedBox(width: 10),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
                   'Gratis Biaya Penjemputan Sampah!',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark),
@@ -876,10 +871,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ============================================================
-  // 5. PINTASAN KONTROL TITIK TERDEKAT
-  // ============================================================
-
   Widget _buildNearestContainerShortcut(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -897,7 +888,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
             child: Row(
@@ -905,16 +896,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: brandYellow.withOpacity(0.25),
+                    color: brandYellow.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(Icons.location_on_rounded, color: textDark, size: 24),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Smart Container Stasiun Bandung',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textDark),
@@ -948,10 +939,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // 6. PROMO CAROUSEL CARD
-  // ============================================================
 
   Widget _buildPromoCarouselSection(BuildContext context) {
     return Padding(
@@ -998,8 +985,8 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const VoucherPage()),
-                );
+                  MaterialPageRoute(builder: (context) => const EcoPointsPage()),
+                ).then((_) => _refreshData());
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: brandYellow,
@@ -1039,6 +1026,19 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               const Text('Semua Layanan EcoCash', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark)),
               const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.stars_rounded, color: Color(0xFFD97706)),
+                title: const Text('EcoPoints & Keanggotaan', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Cek tier member, riwayat & tukar poin'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const EcoPointsPage()),
+                  ).then((_) => _refreshData());
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.person_rounded, color: primaryNavy),
                 title: const Text('Profil Pengguna', style: TextStyle(fontWeight: FontWeight.bold)),

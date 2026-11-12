@@ -196,4 +196,7 @@ class ApiConfig {
 
   static String get getBotTree => '$baseUrl/bot/tree';
   static String get getNotifications => '$baseUrl/notifications';
+
+  static String get getMyPoints => '$baseUrl/wallets/me/points';
+  static String get redeemPoints => '$baseUrl/wallets/me/points/redeem';
 }
