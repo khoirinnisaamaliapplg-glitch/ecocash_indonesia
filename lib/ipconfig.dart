@@ -199,4 +199,6 @@ class ApiConfig {
 
   static String get getMyPoints => '$baseUrl/wallets/me/points';
   static String get redeemPoints => '$baseUrl/wallets/me/points/redeem';
+
+  static String get getPublicPromoBanners => '$baseUrl/promo-banners?limit=3';
 }
