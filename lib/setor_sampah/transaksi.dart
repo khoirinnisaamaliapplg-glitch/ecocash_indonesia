@@ -29,6 +29,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
     final String sessionId = data['sessionId']?.toString() ?? '-';
     final String totalWeight = data['totalWeight']?.toString() ?? '0.00';
     final String machineName = data['machineName']?.toString() ?? 'Smart Container';
+    final String confirmedBy = (data['confirmedBy'] ?? '').toString().toUpperCase();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -44,7 +45,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
                   top: 110,
                   left: 18,
                   right: 18,
-                  child: _buildSuccessCard(items, earned, balance, sessionId, totalWeight, machineName),
+                  child: _buildSuccessCard(items, earned, balance, sessionId, totalWeight, machineName, confirmedBy),
                 ),
               ],
             ),
@@ -79,6 +80,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
     String idSesi,
     String totalWeight,
     String machineName,
+    String confirmedBy,
   ) {
     return Container(
       padding: const EdgeInsets.all(22),
@@ -101,7 +103,7 @@ class TransaksiBerhasilScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Saldo hasil setoran telah masuk ke dompet Anda.',
+            confirmedBy == 'MACHINE' ? 'Dikonfirmasi melalui layar Smart Container. Saldo telah masuk ke dompet Anda.' : 'Saldo hasil setoran telah masuk ke dompet Anda.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),

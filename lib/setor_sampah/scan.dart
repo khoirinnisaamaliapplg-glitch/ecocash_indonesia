@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:ecocash_indonesia/ipconfig.dart';
 import 'package:ecocash_indonesia/setor_sampah/konfirmasi.dart';
+import 'package:ecocash_indonesia/setor_sampah/transaksi.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
@@ -118,6 +119,56 @@ class _ScanPageState extends State<ScanPage> {
 
     socket.connect();
     _socket = socket;
+  }
+
+  Future<void> _handleMachineCompletedOnScan(int sessionId, Map<String, dynamic> eventMap) async {
+    if (!mounted || _hasNavigated) return;
+    _hasNavigated = true;
+    _fallbackTimer?.cancel();
+    _disposeSocket();
+
+    List<dynamic> items = [];
+    String totalWeight = '0.00';
+    String machineName = 'Smart Container';
+    String earned = eventMap['earned']?.toString() ?? '0';
+
+    try {
+      final res = await http.get(
+        Uri.parse(ApiConfig.getSessionDetail(sessionId.toString())),
+        headers: ApiConfig.headers,
+      );
+      if (res.statusCode == 200) {
+        final detail = jsonDecode(res.body)['data'];
+        if (detail is Map) {
+          if (detail['items'] is List) items = detail['items'];
+          totalWeight = (detail['summary']?['currentWeight'] ?? '0.00').toString();
+          machineName = (detail['machine']?['name'] ?? 'Smart Container').toString();
+          if (earned == '0') {
+            earned = (detail['summary']?['totalPrice'] ?? '0').toString();
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TransaksiBerhasilScreen(
+          detailTransaksi: {
+            'data': {
+              'sessionId': sessionId.toString(),
+              'earned': earned,
+              'balance': eventMap['balance']?.toString() ?? '0',
+              'totalWeight': totalWeight,
+              'machineName': machineName,
+              'confirmedBy': eventMap['confirmedBy']?.toString() ?? 'MACHINE',
+              'items': items,
+            },
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchAndNavigateToSession(int sessionId) async {
