@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:ecocash_indonesia/ipconfig.dart';
-import 'package:ecocash_indonesia/profile/editprofile.dart';
+import 'package:ecocash_indonesia/Profile/editprofile.dart';
+import 'package:ecocash_indonesia/Profile/keamanan_pin_page.dart';
+import 'package:ecocash_indonesia/Profile/notifikasi_page.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'daftar_alamat_page.dart';
 
-// Alias tipe agar tidak terpotong saat proses salin
 typedef ProfileMap = Map<String, dynamic>;
 
 class ProfilePage extends StatefulWidget {
@@ -22,11 +23,13 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color surfaceBg = Color(0xFFF7F8FA);
 
   late Future<ProfileMap> _profileFuture;
+  int _unreadNotifCount = 0;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = fetchUserProfile();
+    _fetchUnreadCount();
   }
 
   Future<ProfileMap> fetchUserProfile() async {
@@ -47,10 +50,42 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.getNotifications}?limit=1'),
+        headers: ApiConfig.headers,
+      );
+      if (res.statusCode == 200 && mounted) {
+        final body = jsonDecode(res.body);
+        final count = int.tryParse((body['data']?['unreadCount'] ?? 0).toString()) ?? 0;
+        setState(() => _unreadNotifCount = count);
+      }
+    } catch (_) {}
+  }
+
   void _refreshProfile() {
     setState(() {
       _profileFuture = fetchUserProfile();
     });
+    _fetchUnreadCount();
+  }
+
+  Future<void> _performLogout(BuildContext context) async {
+    try {
+      if (ApiConfig.hasToken) {
+        await http.post(
+          Uri.parse(ApiConfig.logout),
+          headers: ApiConfig.headers,
+        );
+      }
+    } catch (_) {
+    } finally {
+      ApiConfig.clearToken();
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
+    }
   }
 
   void _confirmLogout(BuildContext context) {
@@ -72,8 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              ApiConfig.userToken = null;
-              Navigator.pop(context);
+              _performLogout(context);
             },
             child: const Text('Keluar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
@@ -183,6 +217,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileCard(BuildContext context, ProfileMap user) {
+    final bool isEmailVerified =
+        user['isVerified'] == true || user['isEmailVerified'] == true || user['emailVerifiedAt'] != null;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -190,12 +227,12 @@ class _ProfilePageState extends State<ProfilePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 6)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 6)),
         ],
       ),
       child: Column(
         children: [
-          _buildProfileIdentity(user),
+          _buildProfileIdentity(user, isEmailVerified),
           const SizedBox(height: 24),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
           const SizedBox(height: 16),
@@ -204,7 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
             iconBg: const Color(0xFFFEF3C7),
             iconColor: const Color(0xFFD97706),
             title: 'Edit Profil Akun',
-            subtitle: 'Nama lengkap & kontak email',
+            subtitle: 'Foto profil, nama lengkap & username',
             onTap: () async {
               final updated = await Navigator.push(
                 context,
@@ -233,10 +270,16 @@ class _ProfilePageState extends State<ProfilePage> {
             iconBg: const Color(0xFFE0F2FE),
             iconColor: const Color(0xFF0284C7),
             title: 'Keamanan Akun & PIN',
-            subtitle: 'Proteksi dompet & kata sandi',
+            subtitle: 'Kelola PIN transaksi 6-digit & kata sandi',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fitur keamanan & ubah PIN segera hadir.')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => KeamananPinPage(
+                    userEmail: (user['email'] ?? '').toString(),
+                    isEmailVerified: isEmailVerified,
+                  ),
+                ),
               );
             },
           ),
@@ -244,12 +287,15 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icons.notifications_active_rounded,
             iconBg: const Color(0xFFF3E8FF),
             iconColor: const Color(0xFF9333EA),
-            title: 'Notifikasi Penjemputan',
-            subtitle: 'Info status pesanan & saldo masuk',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Notifikasi dalam aplikasi aktif.')),
+            title: 'Notifikasi',
+            subtitle: 'Info penjemputan, setor mesin & saldo masuk',
+            badgeCount: _unreadNotifCount,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotifikasiPage()),
               );
+              _fetchUnreadCount();
             },
           ),
           const SizedBox(height: 20),
@@ -259,10 +305,13 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileIdentity(ProfileMap user) {
-    final String initial = ((user['name'] ?? 'W').toString().isNotEmpty)
-        ? (user['name'] ?? 'W').toString()[0].toUpperCase()
-        : 'W';
+  Widget _buildProfileIdentity(ProfileMap user, bool isEmailVerified) {
+    final String name = (user['name'] ?? 'Nama Pengguna').toString();
+    final String username = (user['username'] ?? '').toString();
+    final String email = (user['email'] ?? 'email@example.com').toString();
+    final String avatarUrl = (user['avatarUrl'] ?? '').toString().trim();
+    final String initial = name.isNotEmpty ? name[0].toUpperCase() : 'W';
+    final bool hasAvatar = avatarUrl.isNotEmpty && avatarUrl != 'null';
 
     return Column(
       children: [
@@ -275,34 +324,51 @@ class _ProfilePageState extends State<ProfilePage> {
                 shape: BoxShape.circle,
                 color: Colors.white,
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFFD4A000).withOpacity(0.2), blurRadius: 14, offset: const Offset(0, 4)),
+                  BoxShadow(color: const Color(0xFFD4A000).withValues(alpha: 0.2), blurRadius: 14, offset: const Offset(0, 4)),
                 ],
               ),
               child: CircleAvatar(
                 radius: 44,
-                backgroundColor: brandYellow.withOpacity(0.35),
-                child: Text(
-                  initial,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 32, color: primaryNavy),
-                ),
+                backgroundColor: brandYellow.withValues(alpha: 0.35),
+                backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+                child: !hasAvatar
+                    ? Text(
+                        initial,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 32, color: primaryNavy),
+                      )
+                    : null,
               ),
             ),
             Container(
               padding: const EdgeInsets.all(5),
-              decoration: const BoxDecoration(color: Color(0xFF00AA13), shape: BoxShape.circle),
-              child: const Icon(Icons.verified, color: Colors.white, size: 14),
+              decoration: BoxDecoration(
+                color: isEmailVerified ? const Color(0xFF00AA13) : Colors.orange,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isEmailVerified ? Icons.verified : Icons.priority_high_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 14),
         Text(
-          user['name'] ?? 'Nama Pengguna',
+          name,
           textAlign: TextAlign.center,
           style: const TextStyle(color: textDark, fontSize: 20, fontWeight: FontWeight.w900),
         ),
+        if (username.isNotEmpty && username != 'null') ...[
+          const SizedBox(height: 2),
+          Text(
+            '@$username',
+            style: const TextStyle(color: primaryNavy, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        ],
         const SizedBox(height: 4),
         Text(
-          user['email'] ?? 'email@example.com',
+          email,
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
         ),
@@ -317,6 +383,7 @@ class _ProfilePageState extends State<ProfilePage> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    int badgeCount = 0,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -356,6 +423,20 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
+                if (badgeCount > 0) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
                 const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
               ],
             ),

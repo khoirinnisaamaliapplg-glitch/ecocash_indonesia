@@ -17,6 +17,7 @@ class ApiConfig {
 
   static String get login => '$baseUrl/auth/login';
   static String get register => '$baseUrl/auth';
+  static String get logout => '$baseUrl/auth/logout';
 
   // ============================================================
   // EMAIL VERIFICATION
@@ -38,9 +39,17 @@ class ApiConfig {
 
   static String get getUserProfile => '$baseUrl/users/me';
   static String get updateProfile => '$baseUrl/users/me';
+  static String get uploadSingle => '$baseUrl/upload/single';
   static String get getMyProfile => getUserProfile;
   static String get getMyQr => getMyDynamicQr;
   static String get getMyCarbon => '$baseUrl/users/me/carbon';
+  static String get changeEmail => '$baseUrl/users/me/email';
+  static String get changePassword => '$baseUrl/users/me/password';
+  static String get deleteAccount => '$baseUrl/users/me';
+  static String get userPin => '$baseUrl/users/me/pin';
+  static String get verifyUserPin => '$baseUrl/users/me/pin/verify';
+  static String get forgotUserPin => '$baseUrl/users/me/pin/forgot';
+  static String get resetUserPin => '$baseUrl/users/me/pin/reset';
 
   // ============================================================
   // USER QR CREDENTIAL
@@ -196,6 +205,8 @@ class ApiConfig {
 
   static String get getBotTree => '$baseUrl/bot/tree';
   static String get getNotifications => '$baseUrl/notifications';
+  static String get markAllNotificationsRead => '$baseUrl/notifications/read-all';
+  static String markNotificationRead(int id) => '$baseUrl/notifications/$id/read';
 
   static String get getMyPoints => '$baseUrl/wallets/me/points';
   static String get redeemPoints => '$baseUrl/wallets/me/points/redeem';
