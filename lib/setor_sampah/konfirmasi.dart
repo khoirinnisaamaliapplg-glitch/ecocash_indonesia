@@ -32,6 +32,7 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
   bool _isLoading = false;
   bool _isReadyToConfirm = false;
   bool _isSocketConnected = false;
+  bool _hasCompletedNavigation = false;
   String _statusMesin = "Silakan masukkan botol/sampah Anda ke lubang mesin...";
 
   IO.Socket? _socket;
@@ -75,6 +76,57 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
     }
   }
 
+  void _navigateToSuccess({
+    String? earned,
+    String? balance,
+    String? pointsEarned,
+    String? pointsBalance,
+    String? confirmedBy,
+  }) {
+    if (!mounted || _hasCompletedNavigation) return;
+    _hasCompletedNavigation = true;
+    _fallbackTimer?.cancel();
+    _disposeSocket();
+
+    HapticFeedback.heavyImpact();
+
+    final WasteItemMap successPayload = {
+      'sessionId': widget.sessionId.toString(),
+      'earned': earned ?? _currentTotalPrice.toStringAsFixed(0),
+      'balance': balance ?? '0',
+      'pointsEarned': pointsEarned ?? '0',
+      'pointsBalance': pointsBalance ?? '0',
+      if (confirmedBy != null) 'confirmedBy': confirmedBy,
+      'totalWeight': _currentTotalWeight.toStringAsFixed(2),
+      'machineName': _machineName ?? 'Smart Container',
+      'machineCode': _machineCode ?? '',
+      'items': _wasteItems,
+    };
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TransaksiBerhasilScreen(detailTransaksi: {'data': successPayload}),
+      ),
+      (route) => route.isFirst,
+    );
+  }
+
+  void _handleSessionCancelled() {
+    if (!mounted || _hasCompletedNavigation) return;
+    _hasCompletedNavigation = true;
+    _fallbackTimer?.cancel();
+    _disposeSocket();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sesi penyetoran dibatalkan atau berakhir karena tidak ada aktivitas.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
   void _initSessionSocket() {
     final token = ApiConfig.userToken?.trim() ?? '';
     if (token.isEmpty) return;
@@ -93,7 +145,6 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
 
     socket.onConnect((_) {
       if (mounted) setState(() => _isSocketConnected = true);
-      // Sinkronkan snapshot satu kali saat reconnect agar tidak ada item tertinggal
       _syncSessionSnapshot();
     });
 
@@ -103,7 +154,7 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
 
     // Event live setiap kali user memasukkan sampah ke mesin RVM
     socket.on('session:item', (payload) {
-      if (!mounted || payload is! Map) return;
+      if (!mounted || _hasCompletedNavigation || payload is! Map) return;
       final int? eventSessionId = int.tryParse((payload['sessionId'] ?? '').toString());
       if (eventSessionId != null && eventSessionId != widget.sessionId) return;
 
@@ -137,14 +188,14 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
         _currentTotalWeight = double.parse((_currentTotalWeight + itemWeight).toStringAsFixed(2));
         _currentTotalPrice += itemPrice;
         if (!_isReadyToConfirm) {
-          _statusMesin = "Item diterima! Masukkan sampah berikutnya atau tekan Selesai di mesin.";
+          _statusMesin = "Item diterima! Masukkan sampah berikutnya atau tekan Konfirmasi di mesin.";
         }
       });
     });
 
-    // Event live perubahan status sesi (WAITING_CONFIRMATION / CANCELLED / COMPLETED)
+    // Event live perubahan status sesi (WAITING_CONFIRMATION / COMPLETED / CANCELLED)
     socket.on('session:state', (payload) {
-      if (!mounted || payload is! Map) return;
+      if (!mounted || _hasCompletedNavigation || payload is! Map) return;
       final int? eventSessionId = int.tryParse((payload['sessionId'] ?? '').toString());
       if (eventSessionId != null && eventSessionId != widget.sessionId) return;
 
@@ -155,7 +206,7 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
         HapticFeedback.heavyImpact();
         setState(() {
           _isReadyToConfirm = true;
-          _statusMesin = "Mesin selesai menimbang! Silakan konfirmasi untuk menerima saldo.";
+          _statusMesin = "Mesin selesai menimbang! Silakan konfirmasi di mesin atau aplikasi.";
           if (summary is Map) {
             final w = double.tryParse((summary['currentWeight'] ?? '').toString());
             final p = double.tryParse((summary['totalPrice'] ?? '').toString());
@@ -163,16 +214,23 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
             if (p != null) _currentTotalPrice = p;
           }
         });
-      } else if (status == 'CANCELLED') {
-        _fallbackTimer?.cancel();
-        _disposeSocket();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sesi penyetoran dibatalkan atau berakhir karena tidak ada aktivitas.'),
-            backgroundColor: Colors.orange,
-          ),
+      } else if (status == 'COMPLETED') {
+        // Sesi diselesaikan langsung dari tombol di layar mesin (confirm-by-machine) atau sesi lain
+        if (summary is Map) {
+          final w = double.tryParse((summary['currentWeight'] ?? '').toString());
+          final p = double.tryParse((summary['totalPrice'] ?? '').toString());
+          if (w != null) _currentTotalWeight = w;
+          if (p != null) _currentTotalPrice = p;
+        }
+        _navigateToSuccess(
+          earned: payload['earned']?.toString(),
+          balance: payload['balance']?.toString(),
+          pointsEarned: payload['pointsEarned']?.toString(),
+          pointsBalance: payload['pointsBalance']?.toString(),
+          confirmedBy: payload['confirmedBy']?.toString() ?? 'MACHINE',
         );
-        Navigator.pop(context);
+      } else if (status == 'CANCELLED') {
+        _handleSessionCancelled();
       }
     });
 
@@ -230,17 +288,26 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
       if (status == 'WAITING_CONFIRMATION') {
         if (!_isReadyToConfirm) HapticFeedback.heavyImpact();
         _isReadyToConfirm = true;
-        _statusMesin = "Mesin selesai menimbang! Silakan konfirmasi untuk menerima saldo.";
+        _statusMesin = "Mesin selesai menimbang! Silakan konfirmasi di mesin atau aplikasi.";
       } else if (status == 'ACTIVE') {
         _statusMesin = _wasteItems.isEmpty
             ? "Pintu mesin terbuka. Masukkan botol/sampah Anda..."
-            : "Item diterima! Masukkan sampah berikutnya atau tekan Selesai di mesin.";
+            : "Item diterima! Masukkan sampah berikutnya atau tekan Konfirmasi di mesin.";
       }
     });
+
+    if (status == 'COMPLETED') {
+      _navigateToSuccess(
+        earned: totalPrice.toStringAsFixed(0),
+        confirmedBy: 'MACHINE',
+      );
+    } else if (status == 'CANCELLED') {
+      _handleSessionCancelled();
+    }
   }
 
   Future<void> _syncSessionSnapshot() async {
-    if (!mounted) return;
+    if (!mounted || _hasCompletedNavigation) return;
     try {
       var response = await http.get(
         Uri.parse(ApiConfig.getSessionDetail(widget.sessionId.toString())),
@@ -265,8 +332,8 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
   }
 
   void _startFallbackSync() {
-    _fallbackTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (!mounted) return;
+    _fallbackTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted || _hasCompletedNavigation) return;
       if (!_isSocketConnected) {
         _syncSessionSnapshot();
       }
@@ -274,7 +341,7 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
   }
 
   Future<void> _handleConfirm() async {
-    if (!_isReadyToConfirm) return;
+    if (!_isReadyToConfirm || _hasCompletedNavigation) return;
     setState(() => _isLoading = true);
 
     try {
@@ -286,30 +353,17 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        _fallbackTimer?.cancel();
-        _disposeSocket();
         final dynamic confirmData = body['data'] ?? {};
-
-        final WasteItemMap successPayload = {
-          'sessionId': widget.sessionId.toString(),
-          'earned': confirmData['earned']?.toString() ?? _currentTotalPrice.toStringAsFixed(0),
-          'balance': confirmData['balance']?.toString() ?? '0',
-          'pointsEarned': confirmData['pointsEarned']?.toString() ?? '0',
-          'pointsBalance': confirmData['pointsBalance']?.toString() ?? '0',
-          'totalWeight': _currentTotalWeight.toStringAsFixed(2),
-          'machineName': _machineName ?? 'Smart Container',
-          'machineCode': _machineCode ?? '',
-          'items': _wasteItems,
-        };
-
-        if (!mounted) return;
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => TransaksiBerhasilScreen(detailTransaksi: {'data': successPayload}),
-          ),
-          (route) => route.isFirst,
+        _navigateToSuccess(
+          earned: confirmData['earned']?.toString() ?? _currentTotalPrice.toStringAsFixed(0),
+          balance: confirmData['balance']?.toString() ?? '0',
+          pointsEarned: confirmData['pointsEarned']?.toString() ?? '0',
+          pointsBalance: confirmData['pointsBalance']?.toString() ?? '0',
+          confirmedBy: 'USER',
         );
+      } else if (response.statusCode == 400 || response.statusCode == 409) {
+        // Kemungkinan baru saja dikonfirmasi dari layar mesin sepersekian detik sebelumnya
+        await _syncSessionSnapshot();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -487,8 +541,9 @@ class _SetorSampahScreenState extends State<SetorSampahScreen> {
           child: _isLoading
               ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: textDark, strokeWidth: 2))
               : Text(
-                  _isReadyToConfirm ? "Konfirmasi & Terima Saldo" : "Menunggu Mesin Selesai...",
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                  _isReadyToConfirm ? "Konfirmasi & Terima Saldo" : "Menunggu Mesin atau Konfirmasi di Layar Mesin...",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
                 ),
         ),
       ),
