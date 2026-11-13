@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -37,10 +38,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late Future<UserDataMap> _userDataFuture;
 
+  final PageController _promoPageController = PageController();
+  Timer? _promoAutoSlideTimer;
+  int _currentPromoIndex = 0;
+  int _promoCount = 1;
+
+  static const List<UserDataMap> _defaultPromos = [
+    {
+      'badgeText': 'PROMO MINGGU INI',
+      'title': 'Tukar 50 Botol PET,\nDapat Bonus 5.000 Poin',
+      'subtitle': 'Berlaku di seluruh Smart Container EcoCash',
+      'description': 'Setorkan botol plastik PET melalui Smart Container QR terdekat dan kumpulkan EcoPoints yang dapat ditukar menjadi saldo dompet atau donasi.',
+      'bgColorHex': '#1E293B',
+      'actionType': 'ECOPOINTS',
+    },
+  ];
+
   @override
   void initState() {
     super.initState();
     _userDataFuture = _fetchUserData();
+    _startPromoAutoSlide();
+  }
+
+  @override
+  void dispose() {
+    _promoAutoSlideTimer?.cancel();
+    _promoPageController.dispose();
+    super.dispose();
+  }
+
+  void _startPromoAutoSlide() {
+    _promoAutoSlideTimer?.cancel();
+    _promoAutoSlideTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || _promoCount <= 1 || !_promoPageController.hasClients) return;
+      final nextIndex = (_currentPromoIndex + 1) % _promoCount;
+      _promoPageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   Future<UserDataMap> _fetchUserData() async {
@@ -48,11 +86,15 @@ class _HomeScreenState extends State<HomeScreen> {
       http.get(Uri.parse(ApiConfig.getUserProfile), headers: ApiConfig.headers),
       http.get(Uri.parse(ApiConfig.getMyWallet), headers: ApiConfig.headers),
       http.get(Uri.parse(ApiConfig.getMyCarbon), headers: ApiConfig.headers),
+      http.get(Uri.parse(ApiConfig.getPublicPromoBanners), headers: ApiConfig.headers).catchError(
+            (_) => http.Response('{"success":false,"data":[]}', 500),
+          ),
     ]);
 
     final http.Response profileResponse = responses[0];
     final http.Response walletResponse = responses[1];
     final http.Response carbonResponse = responses[2];
+    final http.Response promoResponse = responses[3];
 
     if (profileResponse.statusCode != 200) {
       throw Exception('Gagal memuat profil: ${profileResponse.statusCode}');
@@ -72,6 +114,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final UserDataMap walletData = _extractDataMap(decodedWallet);
     final UserDataMap carbonData = _extractDataMap(decodedCarbon);
 
+    List<UserDataMap> promoBanners = List<UserDataMap>.from(_defaultPromos);
+    if (promoResponse.statusCode == 200) {
+      try {
+        final decodedPromo = jsonDecode(promoResponse.body);
+        final rawList = decodedPromo is Map ? decodedPromo['data'] : null;
+        if (rawList is List && rawList.isNotEmpty) {
+          promoBanners = rawList
+              .whereType()
+              .map((item) => Map<String, dynamic>.from(item))
+              .take(3)
+              .toList();
+        }
+      } catch (_) {}
+    }
+
+    _promoCount = promoBanners.length;
+    if (_currentPromoIndex >= _promoCount) {
+      _currentPromoIndex = 0;
+    }
+
     return {
       ...walletData,
       ...profileData,
@@ -84,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'totalWasteKg': carbonData['totalWasteKg'] ?? 0,
       'carbonTransactions': carbonData['transactions'] ?? 0,
       'carbonTrend': carbonData['trend'] ?? [],
+      'promoBanners': promoBanners,
     };
   }
 
@@ -124,6 +187,173 @@ class _HomeScreenState extends State<HomeScreen> {
     return number.toInt().toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match match) => '${match[1]}.',
+    );
+  }
+
+  Color _parseHexColor(String? hexString, Color fallback) {
+    if (hexString == null || hexString.trim().isEmpty) return fallback;
+    final clean = hexString.trim().replaceFirst('#', '');
+    if (clean.length == 6) {
+      final parsed = int.tryParse('FF$clean', radix: 16);
+      if (parsed != null) return Color(parsed);
+    } else if (clean.length == 8) {
+      final parsed = int.tryParse(clean, radix: 16);
+      if (parsed != null) return Color(parsed);
+    }
+    return fallback;
+  }
+
+  Future<void> _handlePromoAction(BuildContext context, Map<String, dynamic> promo) async {
+    final String actionType = (promo['actionType'] ?? 'NONE').toString().toUpperCase();
+    final String actionTarget = (promo['actionTarget'] ?? '').toString().trim();
+
+    switch (actionType) {
+      case 'ECOPOINTS':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EcoPointsPage()),
+        );
+        _refreshData();
+        break;
+      case 'VOUCHER':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const VoucherPage()),
+        );
+        break;
+      case 'PICKUP':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PickupWastePage()),
+        );
+        _refreshData();
+        break;
+      case 'SCAN':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ScanPage()),
+        );
+        _refreshData();
+        break;
+      case 'ECOMART':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EcomerPage()),
+        );
+        _refreshData();
+        break;
+      case 'DONATION':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DonationPage()),
+        );
+        _refreshData();
+        break;
+      case 'EXTERNAL_URL':
+        if (actionTarget.isNotEmpty) {
+          final uri = Uri.tryParse(actionTarget);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            return;
+          }
+        }
+        _showPromoDetailSheet(context, promo);
+        break;
+      default:
+        _showPromoDetailSheet(context, promo);
+    }
+  }
+
+  void _showPromoDetailSheet(BuildContext context, Map<String, dynamic> promo) {
+    final String badge = (promo['badgeText'] ?? 'PROMO ECOCASH').toString();
+    final String title = (promo['title'] ?? '').toString().replaceAll('\n', ' ');
+    final String subtitle = (promo['subtitle'] ?? '').toString();
+    final String description = (promo['description'] ?? '').toString();
+    final String imageUrl = (promo['imageUrl'] ?? '').toString().trim();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (imageUrl.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    imageUrl,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: brandYellow,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: textDark),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textDark),
+              ),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                ),
+              ],
+              if (description.isNotEmpty) ...[
+                const Divider(height: 24),
+                Text(
+                  description,
+                  style: const TextStyle(fontSize: 13, color: textDark, height: 1.45),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: brandYellow,
+                    foregroundColor: textDark,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -188,6 +418,8 @@ class _HomeScreenState extends State<HomeScreen> {
             }
 
             final UserDataMap data = snapshot.data ?? {};
+            final List<UserDataMap> promoBanners =
+                (data['promoBanners'] as List<UserDataMap>?) ?? _defaultPromos;
 
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -201,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
                   _buildNearestContainerShortcut(context),
                   const SizedBox(height: 20),
-                  _buildPromoCarouselSection(context),
+                  _buildPromoCarouselSection(context, promoBanners),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -940,66 +1172,176 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPromoCarouselSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+  Widget _buildPromoCarouselSection(BuildContext context, List<UserDataMap> promos) {
+    final items = promos.isEmpty ? _defaultPromos : promos;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Promo & Info Menarik',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textDark),
+              ),
+              if (items.length > 1)
+                Text(
+                  '${_currentPromoIndex + 1}/${items.length}',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+                ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(20),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 136,
+          child: PageView.builder(
+            controller: _promoPageController,
+            itemCount: items.length,
+            onPageChanged: (index) {
+              setState(() => _currentPromoIndex = index);
+            },
+            itemBuilder: (context, index) {
+              final promo = items[index];
+              final String badgeText = (promo['badgeText'] ?? 'PROMO MINGGU INI').toString();
+              final String title = (promo['title'] ?? '').toString();
+              final String subtitle = (promo['subtitle'] ?? '').toString();
+              final String imageUrl = (promo['imageUrl'] ?? '').toString().trim();
+              final Color startColor = _parseHexColor(promo['bgColorHex']?.toString(), const Color(0xFF1E293B));
+              final Color endColor = Color.lerp(startColor, Colors.black, 0.35) ?? const Color(0xFF0F172A);
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GestureDetector(
+                  onTap: () => _handlePromoAction(context, promo),
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: brandYellow,
-                      borderRadius: BorderRadius.circular(6),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [startColor, endColor],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: startColor.withValues(alpha: 0.25),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'PROMO MINGGU INI',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: textDark),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Stack(
+                        children: [
+                          if (imageUrl.isNotEmpty)
+                            Positioned.fill(
+                              child: Opacity(
+                                opacity: 0.22,
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: brandYellow,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          badgeText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            color: textDark,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        title,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                      if (subtitle.isNotEmpty) ...[
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 10, color: Colors.white70),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                ElevatedButton(
+                                  onPressed: () => _handlePromoAction(context, promo),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: brandYellow,
+                                    foregroundColor: textDark,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text('Detail', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Tukar 50 Botol PET,\nDapat Bonus 5.000 Poin',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white, height: 1.2),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Berlaku di seluruh Smart Container Bandung',
-                    style: TextStyle(fontSize: 10, color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const EcoPointsPage()),
-                ).then((_) => _refreshData());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: brandYellow,
-                foregroundColor: textDark,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                elevation: 0,
-              ),
-              child: const Text('Detail', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            ),
-          ],
+                ),
+              );
+            },
+          ),
         ),
-      ),
+        if (items.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(items.length, (idx) {
+              final bool active = idx == _currentPromoIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? textDark : Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ],
+      ],
     );
   }
 
