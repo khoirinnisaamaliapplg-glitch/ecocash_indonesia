@@ -465,32 +465,35 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.search, color: Colors.grey, size: 20),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Cari kontainer, jenis botol, promo...',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                              overflow: TextOverflow.ellipsis,
+                    child: GestureDetector(
+                      onTap: () => _openHomeSearchSheet(context, data),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.search, color: Colors.grey, size: 20),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Cari kontainer, jenis botol, promo...',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -529,17 +532,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         MaterialPageRoute(builder: (context) => const ProfilePage()),
                       ).then((_) => _refreshData());
                     },
-                    child: CircleAvatar(
-                      radius: 21,
-                      backgroundColor: textDark,
-                      child: CircleAvatar(
-                        radius: 19,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          username.isNotEmpty ? username[0].toUpperCase() : 'U',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 16),
-                        ),
-                      ),
+                    child: Builder(
+                      builder: (context) {
+                        final String avatarUrl = (data['avatarUrl'] ?? '').toString().trim();
+                        final bool hasAvatar = avatarUrl.isNotEmpty && avatarUrl != 'null';
+                        return CircleAvatar(
+                          radius: 21,
+                          backgroundColor: textDark,
+                          child: CircleAvatar(
+                            radius: 19,
+                            backgroundColor: Colors.white,
+                            backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+                            child: !hasAvatar
+                                ? Text(
+                                    username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 16),
+                                  )
+                                : null,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -1388,7 +1400,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.pop(ctx);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())).then((_) => _refreshData());
                 },
               ),
               ListTile(
@@ -1407,6 +1419,221 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _openHomeSearchSheet(BuildContext context, UserDataMap data) {
+    final TextEditingController searchCtrl = TextEditingController();
+    String query = '';
+    bool isLoadingRefs = true;
+    List<UserDataMap> wasteTypes = [];
+    List<UserDataMap> machines = [];
+
+    final List<UserDataMap> quickMenus = [
+      {'title': 'Setor Sampah (Scan QR)', 'category': 'Layanan', 'icon': Icons.qr_code_scanner_rounded, 'route': 'scan'},
+      {'title': 'EcoJemput Sampah Rumah', 'category': 'Layanan', 'icon': Icons.local_shipping_rounded, 'route': 'pickup'},
+      {'title': 'EcoDrop & Peta Smart Container', 'category': 'Lokasi', 'icon': Icons.location_on_rounded, 'route': 'map'},
+      {'title': 'EcoMart Produk Daur Ulang', 'category': 'Belanja', 'icon': Icons.storefront_rounded, 'route': 'ecomart'},
+      {'title': 'Voucher & Tukar Poin', 'category': 'Promo', 'icon': Icons.confirmation_number_rounded, 'route': 'voucher'},
+      {'title': 'Pusat Bantuan & Panduan Pemilahan', 'category': 'Edukasi', 'icon': Icons.help_center_rounded, 'route': 'help'},
+    ];
+
+    bool startedFetch = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          if (!startedFetch) {
+            startedFetch = true;
+            Future.wait([
+              http.get(Uri.parse(ApiConfig.getWasteTypes), headers: ApiConfig.headers).catchError((_) => http.Response('{}', 500)),
+              http.get(Uri.parse(ApiConfig.getPublicMachines), headers: ApiConfig.headers).catchError((_) => http.Response('{}', 500)),
+            ]).then((responses) {
+              if (!ctx.mounted) return;
+              List<UserDataMap> parsedWaste = [];
+              List<UserDataMap> parsedMachines = [];
+              try {
+                final wBody = jsonDecode(responses[0].body);
+                final wRaw = wBody is Map ? (wBody['data'] is List ? wBody['data'] : wBody['data']?['items']) : null;
+                if (wRaw is List) {
+                  parsedWaste = wRaw.whereType().map((e) => UserDataMap.from(e)).toList();
+                }
+              } catch (_) {}
+              try {
+                final mBody = jsonDecode(responses[1].body);
+                final mRaw = mBody is Map ? (mBody['data'] is List ? mBody['data'] : mBody['data']?['items']) : null;
+                if (mRaw is List) {
+                  parsedMachines = mRaw.whereType().map((e) => UserDataMap.from(e)).toList();
+                }
+              } catch (_) {}
+
+              setModalState(() {
+                wasteTypes = parsedWaste;
+                machines = parsedMachines;
+                isLoadingRefs = false;
+              });
+            });
+          }
+
+          final q = query.trim().toLowerCase();
+          final filteredMenus = quickMenus
+              .where((m) => q.isEmpty || m['title'].toString().toLowerCase().contains(q) || m['category'].toString().toLowerCase().contains(q))
+              .toList();
+          final filteredMachines = machines
+              .where((m) => q.isEmpty || (m['name'] ?? '').toString().toLowerCase().contains(q) || (m['address'] ?? '').toString().toLowerCase().contains(q))
+              .take(5)
+              .toList();
+          final filteredWastes = wasteTypes
+              .where((w) => q.isEmpty || (w['name'] ?? '').toString().toLowerCase().contains(q) || (w['category'] ?? '').toString().toLowerCase().contains(q))
+              .take(6)
+              .toList();
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (_, scrollCtrl) => Padding(
+              padding: EdgeInsets.fromLTRB(18, 14, 18, MediaQuery.of(ctx).viewInsets.bottom + 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: searchCtrl,
+                    autofocus: true,
+                    onChanged: (val) => setModalState(() => query = val),
+                    decoration: InputDecoration(
+                      hintText: 'Cari Smart Container, botol PET, voucher...',
+                      prefixIcon: const Icon(Icons.search, color: textDark),
+                      suffixIcon: query.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                searchCtrl.clear();
+                                setModalState(() => query = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollCtrl,
+                      children: [
+                        if (filteredMenus.isNotEmpty) ...[
+                          const Text('Layanan & Fitur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: textDark)),
+                          const SizedBox(height: 8),
+                          ...filteredMenus.map((item) => ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                                leading: CircleAvatar(
+                                  backgroundColor: brandYellow.withValues(alpha: 0.35),
+                                  child: Icon(item['icon'] as IconData, color: textDark, size: 18),
+                                ),
+                                title: Text(item['title'].toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                subtitle: Text(item['category'].toString(), style: const TextStyle(fontSize: 11)),
+                                trailing: const Icon(Icons.north_west_rounded, size: 16, color: Colors.grey),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  final route = item['route'];
+                                  if (route == 'scan') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ScanPage())).then((_) => _refreshData());
+                                  } else if (route == 'pickup') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PickupWastePage())).then((_) => _refreshData());
+                                  } else if (route == 'map') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const Maps()));
+                                  } else if (route == 'ecomart') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const EcomerPage()));
+                                  } else if (route == 'voucher') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherPage()));
+                                  } else if (route == 'help') {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PusatBantuanPage()));
+                                  }
+                                },
+                              )),
+                          const SizedBox(height: 12),
+                        ],
+                        if (isLoadingRefs)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(child: CircularProgressIndicator(color: primaryNavy)),
+                          )
+                        else ...[
+                          if (filteredMachines.isNotEmpty) ...[
+                            const Text('Smart Container', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: textDark)),
+                            const SizedBox(height: 8),
+                            ...filteredMachines.map((m) => ListTile(
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                                  leading: const CircleAvatar(
+                                    backgroundColor: Color(0xFFDCFCE7),
+                                    child: Icon(Icons.recycling_rounded, color: ecoGreen, size: 18),
+                                  ),
+                                  title: Text((m['name'] ?? 'Smart Container').toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  subtitle: Text((m['address'] ?? '-').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const Maps()));
+                                  },
+                                )),
+                            const SizedBox(height: 12),
+                          ],
+                          if (filteredWastes.isNotEmpty) ...[
+                            const Text('Jenis Sampah & Nilai Tukar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: textDark)),
+                            const SizedBox(height: 8),
+                            ...filteredWastes.map((w) {
+                              final price = w['pricePerKg'] ?? w['userPricePerKg'] ?? 0;
+                              return ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                                leading: const CircleAvatar(
+                                  backgroundColor: Color(0xFFE0F2FE),
+                                  child: Icon(Icons.eco_rounded, color: Color(0xFF0284C7), size: 18),
+                                ),
+                                title: Text((w['name'] ?? 'Sampah Daur Ulang').toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                subtitle: Text('Estimasi Rp $price / kg', style: const TextStyle(fontSize: 11, color: ecoGreen, fontWeight: FontWeight.w600)),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ScanPage())).then((_) => _refreshData());
+                                },
+                              );
+                            }),
+                          ],
+                          if (filteredMenus.isEmpty && filteredMachines.isEmpty && filteredWastes.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(
+                                child: Text('Tidak ada hasil yang cocok dengan pencarian Anda.', style: TextStyle(color: Colors.grey)),
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
