@@ -118,6 +118,7 @@ class ApiConfig {
   // ============================================================
 
   static String get getMyWallet => '$baseUrl/wallets/me';
+  static String get withdrawWallet => '$baseUrl/wallets/withdraw';
   static String get getTransactions => '$baseUrl/wallets/me/transactions';
   static String get getMyWalletTransactions => "$baseUrl/wallets/me/transactions";
   static String get createTopUp => '$baseUrl/wallets/topup';
