@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../ipconfig.dart';
+import '../Profile/keamanan_pin_page.dart';
 
-// Alias tipe agar kebal error copy-paste kurung siku generik
 typedef WalletDataMap = Map<String, dynamic>;
 
 class TransferPage extends StatefulWidget {
@@ -16,9 +16,7 @@ class TransferPage extends StatefulWidget {
 }
 
 class _TransferPageState extends State<TransferPage> {
-  // Palet Warna Gojek-Inspired EcoCash
   static const Color brandYellow = Color(0xFFFFE600);
-  static const Color brandYellowDark = Color(0xFFF5D000);
   static const Color textDark = Color(0xFF1C1C1E);
   static const Color primaryNavy = Color(0xFF0F2C59);
   static const Color ecoGreen = Color(0xFF00AA13);
@@ -27,6 +25,11 @@ class _TransferPageState extends State<TransferPage> {
   static const double adminFee = 2500.0;
 
   bool _isLoadingWallet = true;
+  bool _isCheckingPin = true;
+  bool _hasPin = false;
+  String _userEmail = '';
+  bool _isEmailVerified = false;
+  DateTime? _pinLockedUntil;
   bool _isSubmitting = false;
   double _balance = 0.0;
 
@@ -49,7 +52,7 @@ class _TransferPageState extends State<TransferPage> {
   @override
   void initState() {
     super.initState();
-    _fetchWalletBalance();
+    _initPageData();
   }
 
   @override
@@ -60,8 +63,15 @@ class _TransferPageState extends State<TransferPage> {
     super.dispose();
   }
 
+  Future<void> _initPageData() async {
+    await Future.wait([
+      _fetchWalletBalance(),
+      _fetchPinStatus(),
+    ]);
+  }
+
   Future<void> _fetchWalletBalance() async {
-    setState(() => _isLoadingWallet = true);
+    if (mounted) setState(() => _isLoadingWallet = true);
     try {
       final res = await http.get(
         Uri.parse(ApiConfig.getMyWallet),
@@ -73,6 +83,7 @@ class _TransferPageState extends State<TransferPage> {
         final data = decoded['data'] ?? decoded;
         final rawBalance = data['balance'] ?? 0;
 
+        if (!mounted) return;
         setState(() {
           _balance = (rawBalance is num)
               ? rawBalance.toDouble()
@@ -86,7 +97,53 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
-  Future<void> _submitWithdrawal() async {
+  Future<void> _fetchPinStatus() async {
+    if (mounted) setState(() => _isCheckingPin = true);
+    try {
+      final responses = await Future.wait([
+        http.get(Uri.parse(ApiConfig.userPin), headers: ApiConfig.headers),
+        http.get(Uri.parse(ApiConfig.getUserProfile), headers: ApiConfig.headers),
+      ]);
+      final res = responses[0];
+      final profileRes = responses[1];
+
+      if (profileRes.statusCode == 200) {
+        final pDecoded = jsonDecode(profileRes.body);
+        final pData = pDecoded['data'] is Map ? Map<String, dynamic>.from(pDecoded['data']) : <String, dynamic>{};
+        _userEmail = (pData['email'] ?? '').toString();
+        _isEmailVerified = pData['isVerified'] == true;
+      }
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded['data'] is Map ? Map<String, dynamic>.from(decoded['data']) : <String, dynamic>{};
+        final lockedRaw = data['lockedUntil']?.toString();
+        DateTime? parsedLock;
+        if (lockedRaw != null && lockedRaw.isNotEmpty && lockedRaw != 'null') {
+          parsedLock = DateTime.tryParse(lockedRaw)?.toLocal();
+        }
+        if (!mounted) return;
+        setState(() {
+          _hasPin = data['isSet'] == true;
+          _pinLockedUntil = (parsedLock != null && parsedLock.isAfter(DateTime.now())) ? parsedLock : null;
+        });
+      }
+    } catch (e) {
+      debugPrint("Gagal memuat status PIN: $e");
+    } finally {
+      if (mounted) setState(() => _isCheckingPin = false);
+    }
+  }
+
+  Future<void> _openPinSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => KeamananPinPage(userEmail: _userEmail, isEmailVerified: _isEmailVerified)),
+    );
+    await _fetchPinStatus();
+  }
+
+  void _initiateWithdrawal() {
     FocusScope.of(context).unfocus();
 
     final String rawAmount = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
@@ -127,77 +184,420 @@ class _TransferPageState extends State<TransferPage> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
-
-    try {
-      final payload = {
-        "amount": amount,
-        "bankName": _selectedProvider,
-        "accountNumber": _accountNumberController.text.trim(),
-        "accountHolderName": _accountHolderController.text.trim(),
-      };
-
-      final response = await http.post(
-        Uri.parse("${ApiConfig.baseUrl}/wallets/withdraw"),
-        headers: ApiConfig.headers,
-        body: jsonEncode(payload),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: const [
-                Icon(Icons.check_circle_rounded, color: ecoGreen, size: 28),
-                SizedBox(width: 10),
-                Text("Penarikan Berhasil!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textDark)),
-              ],
-            ),
-            content: Text(
-              "Pencairan dana ${_currencyFormat.format(amount)} ke $_selectedProvider (${_accountNumberController.text.trim()}) sedang diproses.\n\nBiaya Admin: Rp 2.500\nSisa Saldo: ${_currencyFormat.format(data['data']?['balanceAfter'] ?? (_balance - totalRequired))}",
-              style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
-            ),
-            actions: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: brandYellow,
-                  foregroundColor: textDark,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    if (!_hasPin) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_outline_rounded, color: Color(0xFFD97706), size: 26),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "PIN Transaksi Diperlukan",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: textDark),
                 ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _amountController.clear();
-                  _accountNumberController.clear();
-                  _accountHolderController.clear();
-                  _fetchWalletBalance();
-                },
-                child: const Text("Selesai", style: TextStyle(fontWeight: FontWeight.w900)),
               ),
             ],
           ),
-        );
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Penarikan saldo gagal'), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Kesalahan jaringan: $e"), backgroundColor: Colors.red),
+          content: const Text(
+            "Demi keamanan dana Anda, buat PIN transaksi 6-digit terlebih dahulu sebelum melakukan penarikan saldo.",
+            style: TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Nanti Saja", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: brandYellow,
+                foregroundColor: textDark,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openPinSettings();
+              },
+              child: const Text("Buat PIN Sekarang", style: TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ],
+        ),
       );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      return;
     }
+
+    _showPinVerificationSheet(amount: amount, totalRequired: totalRequired);
+  }
+
+  void _showPinVerificationSheet({
+    required double amount,
+    required double totalRequired,
+  }) {
+    final TextEditingController pinController = TextEditingController();
+    final FocusNode pinFocusNode = FocusNode();
+    bool isVerifying = false;
+    String? pinErrorMessage;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            Future<void> submitWithPin(String pinValue) async {
+              if (pinValue.length != 6 || isVerifying) return;
+
+              setSheetState(() {
+                isVerifying = true;
+                pinErrorMessage = null;
+              });
+              if (mounted) setState(() => _isSubmitting = true);
+
+              try {
+                final payload = {
+                  "amount": amount,
+                  "bankName": _selectedProvider,
+                  "accountNumber": _accountNumberController.text.trim(),
+                  "accountHolderName": _accountHolderController.text.trim(),
+                  "pin": pinValue,
+                };
+
+                final response = await http.post(
+                  Uri.parse(ApiConfig.withdrawWallet),
+                  headers: ApiConfig.headers,
+                  body: jsonEncode(payload),
+                );
+
+                final decoded = jsonDecode(response.body);
+                final Map<String, dynamic> data =
+                    decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
+
+                if (response.statusCode == 200 || response.statusCode == 201) {
+                  if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                  if (!mounted) return;
+                  _showSuccessDialog(
+                    amount: amount,
+                    totalRequired: totalRequired,
+                    responseData: data,
+                  );
+                  return;
+                }
+
+                final String code = (data['code'] ?? data['error']?['code'] ?? '').toString();
+                final String baseMsg = (data['message'] ?? 'Verifikasi PIN atau penarikan gagal').toString();
+                final dynamic details = data['details'] ?? data['error']?['details'];
+                final dynamic attemptsLeft = details is Map ? details['attemptsLeft'] : null;
+
+                String displayError = baseMsg;
+                if (code == 'INVALID_PIN' && attemptsLeft != null) {
+                  displayError = "PIN salah. Sisa percobaan: $attemptsLeft kali.";
+                } else if (code == 'PIN_LOCKED') {
+                  _fetchPinStatus();
+                } else if (code == 'PIN_NOT_SET') {
+                  _fetchPinStatus();
+                }
+
+                pinController.clear();
+                setSheetState(() {
+                  isVerifying = false;
+                  pinErrorMessage = displayError;
+                });
+                if (pinFocusNode.canRequestFocus) {
+                  pinFocusNode.requestFocus();
+                }
+              } catch (e) {
+                setSheetState(() {
+                  isVerifying = false;
+                  pinErrorMessage = "Kesalahan jaringan: $e";
+                });
+              } finally {
+                if (mounted) setState(() => _isSubmitting = false);
+              }
+            }
+
+            final String currentPin = pinController.text;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                22,
+                14,
+                22,
+                MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: brandYellow.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.shield_rounded, color: textDark, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Konfirmasi PIN Transaksi",
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: textDark),
+                            ),
+                            Text(
+                              "Masukkan 6-digit PIN EcoCash Anda",
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: isVerifying ? null : () => Navigator.pop(sheetCtx),
+                        icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: surfaceBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Tujuan Pencairan", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(
+                              "$_selectedProvider • ${_accountNumberController.text.trim()}",
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Nominal + Admin", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(
+                              "${_currencyFormat.format(amount)} + Rp 2.500",
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textDark),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Total Potong Saldo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark)),
+                            Text(
+                              _currencyFormat.format(totalRequired),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: primaryNavy),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => pinFocusNode.requestFocus(),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(6, (index) {
+                        final bool filled = index < currentPin.length;
+                        final bool isCurrent = index == currentPin.length && !isVerifying;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 120),
+                          width: 44,
+                          height: 52,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: filled ? brandYellow.withValues(alpha: 0.25) : surfaceBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: pinErrorMessage != null
+                                  ? Colors.red
+                                  : (isCurrent || filled ? textDark : Colors.grey.shade300),
+                              width: isCurrent ? 2 : 1.4,
+                            ),
+                          ),
+                          child: filled
+                              ? Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: const BoxDecoration(
+                                    color: textDark,
+                                    shape: BoxShape.circle,
+                                  ),
+                                )
+                              : null,
+                        );
+                      }),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 1,
+                    width: 1,
+                    child: TextField(
+                      controller: pinController,
+                      focusNode: pinFocusNode,
+                      autofocus: true,
+                      enabled: !isVerifying,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 6,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        counterText: '',
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (val) {
+                        setSheetState(() {
+                          if (pinErrorMessage != null) pinErrorMessage = null;
+                        });
+                        if (val.length == 6) {
+                          submitWithPin(val);
+                        }
+                      },
+                    ),
+                  ),
+                  if (pinErrorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              pinErrorMessage!,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFDC2626)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: (currentPin.length == 6 && !isVerifying)
+                          ? () => submitWithPin(currentPin)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: brandYellow,
+                        disabledBackgroundColor: const Color(0xFFE2E8F0),
+                        foregroundColor: textDark,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: isVerifying
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: textDark, strokeWidth: 2),
+                            )
+                          : const Text(
+                              "Konfirmasi & Tarik Dana",
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: isVerifying
+                        ? null
+                        : () {
+                            Navigator.pop(sheetCtx);
+                            _openPinSettings();
+                          },
+                    child: const Text(
+                      "Lupa PIN Transaksi? Atur Ulang PIN",
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryNavy),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSuccessDialog({
+    required double amount,
+    required double totalRequired,
+    required Map<String, dynamic> responseData,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: ecoGreen, size: 28),
+            SizedBox(width: 10),
+            Text("Penarikan Berhasil!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textDark)),
+          ],
+        ),
+        content: Text(
+          "Pencairan dana ${_currencyFormat.format(amount)} ke $_selectedProvider (${_accountNumberController.text.trim()}) sedang diproses.\n\nBiaya Admin: Rp 2.500\nSisa Saldo: ${_currencyFormat.format(responseData['data']?['balanceAfter'] ?? (_balance - totalRequired))}",
+          style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: brandYellow,
+              foregroundColor: textDark,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _amountController.clear();
+              _accountNumberController.clear();
+              _accountHolderController.clear();
+              _fetchWalletBalance();
+            },
+            child: const Text("Selesai", style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showTransactionHistoryDialog() {
@@ -250,7 +650,7 @@ class _TransferPageState extends State<TransferPage> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: brandYellow.withOpacity(0.35),
+                                color: brandYellow.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(Icons.receipt_long_rounded, color: textDark, size: 20),
@@ -313,17 +713,90 @@ class _TransferPageState extends State<TransferPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: surfaceBg,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 70),
-            _buildWithdrawalForm(),
-            const SizedBox(height: 30),
-          ],
+      body: RefreshIndicator(
+        onRefresh: _initPageData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 75),
+              if (!_isCheckingPin && !_hasPin) _buildPinWarningBanner(),
+              if (!_isCheckingPin && _pinLockedUntil != null) _buildPinLockedBanner(),
+              _buildWithdrawalForm(),
+              const SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  Widget _buildPinWarningBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded, color: Color(0xFFD97706), size: 22),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Anda belum mengatur PIN transaksi 6-digit. Atur PIN terlebih dahulu untuk mencairkan dana.",
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF92400E), height: 1.35),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _openPinSettings,
+            style: TextButton.styleFrom(
+              backgroundColor: brandYellow,
+              foregroundColor: textDark,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("Atur PIN", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPinLockedBanner() {
+    final String untilText = _pinLockedUntil != null
+        ? DateFormat('HH:mm').format(_pinLockedUntil!)
+        : '';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.gpp_bad_rounded, color: Color(0xFFDC2626), size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "PIN transaksi terkunci sementara hingga pukul $untilText karena salah percobaan.",
+              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF991B1B), height: 1.35),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _openPinSettings,
+            child: const Text("Reset", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
+          ),
+        ],
+      ),
     );
   }
 
@@ -380,8 +853,8 @@ class _TransferPageState extends State<TransferPage> {
                     color: textDark,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
-                    children: const [
+                  child: const Row(
+                    children: [
                       Icon(Icons.history_rounded, color: brandYellow, size: 16),
                       SizedBox(width: 6),
                       Text('Mutasi', style: TextStyle(color: brandYellow, fontSize: 12, fontWeight: FontWeight.w900)),
@@ -405,7 +878,7 @@ class _TransferPageState extends State<TransferPage> {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD4A000).withOpacity(0.14),
+            color: const Color(0xFFD4A000).withValues(alpha: 0.14),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -421,10 +894,28 @@ class _TransferPageState extends State<TransferPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
+                  color: _hasPin ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('Tersedia', style: TextStyle(color: Color(0xFF16A34A), fontSize: 10, fontWeight: FontWeight.bold)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _hasPin ? Icons.verified_user_rounded : Icons.lock_open_rounded,
+                      size: 12,
+                      color: _hasPin ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _hasPin ? 'Dilindungi PIN' : 'PIN Belum Aktif',
+                      style: TextStyle(
+                        color: _hasPin ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -436,7 +927,7 @@ class _TransferPageState extends State<TransferPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: brandYellow.withOpacity(0.3),
+                        color: brandYellow.withValues(alpha: 0.3),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.account_balance_wallet_rounded, color: textDark, size: 24),
@@ -452,13 +943,13 @@ class _TransferPageState extends State<TransferPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(color: surfaceBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
-            child: Row(
-              children: const [
+            child: const Row(
+              children: [
                 Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Biaya transfer antar-rekening flat Rp 2.500 per transaksi.",
+                    "Biaya transfer antar-rekening flat Rp 2.500 per transaksi & dilindungi PIN 6-digit.",
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
                   ),
                 ),
@@ -482,7 +973,7 @@ class _TransferPageState extends State<TransferPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -626,7 +1117,7 @@ class _TransferPageState extends State<TransferPage> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? brandYellow.withOpacity(0.3) : const Color(0xFFF8FAFC),
+          color: active ? brandYellow.withValues(alpha: 0.3) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: active ? textDark : Colors.grey.shade300, width: 1.5),
         ),
@@ -656,7 +1147,7 @@ class _TransferPageState extends State<TransferPage> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: valid ? _submitWithdrawal : null,
+            onPressed: valid ? _initiateWithdrawal : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: brandYellow,
               disabledBackgroundColor: const Color(0xFFE2E8F0),
@@ -666,13 +1157,22 @@ class _TransferPageState extends State<TransferPage> {
             ),
             child: _isSubmitting
                 ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: textDark, strokeWidth: 2))
-                : Text(
-                    valid ? "Tarik ${_currencyFormat.format(amount)}" : "Masukkan Nominal Valid",
-                    style: TextStyle(
-                      color: valid ? textDark : Colors.grey.shade500,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (valid) ...[
+                        const Icon(Icons.lock_rounded, size: 18, color: textDark),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        valid ? "Tarik ${_currencyFormat.format(amount)}" : "Masukkan Nominal Valid",
+                        style: TextStyle(
+                          color: valid ? textDark : Colors.grey.shade500,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
                   ),
           ),
         ),
