@@ -4,21 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import '../ecomer/ecomer.dart';
 
 class VoucherPage extends StatefulWidget {
-  const VoucherPage({super.key});
+  final bool isSelecting;
+
+  const VoucherPage({
+    super.key,
+    this.isSelecting = false,
+  });
 
   @override
   State<VoucherPage> createState() => _VoucherPageState();
 }
 
 class _VoucherPageState extends State<VoucherPage> {
-  // Palet Warna Gojek-Inspired EcoCash
   static const Color brandYellow = Color(0xFFFFE600);
-  static const Color brandYellowDark = Color(0xFFF5D000);
   static const Color textDark = Color(0xFF1C1C1E);
   static const Color primaryNavy = Color(0xFF0F2C59);
-  static const Color ecoGreen = Color(0xFF00AA13);
   static const Color surfaceBg = Color(0xFFF7F8FA);
 
   bool _isLoading = true;
@@ -48,10 +51,6 @@ class _VoucherPageState extends State<VoucherPage> {
     _searchController.dispose();
     super.dispose();
   }
-
-  // ============================================================
-  // FETCH VOUCHERS (LOGIKA & INTEGRASI BE UTUH)
-  // ============================================================
 
   Future<void> _fetchVouchers() async {
     try {
@@ -169,8 +168,11 @@ class _VoucherPageState extends State<VoucherPage> {
     );
   }
 
-  void _selectVoucher(VoucherModel voucher) {
-    Navigator.pop(context, {
+  Future<void> _selectVoucher(VoucherModel voucher) async {
+    await Clipboard.setData(ClipboardData(text: voucher.code));
+    if (!mounted) return;
+
+    final payload = {
       'id': voucher.id,
       'code': voucher.code,
       'name': voucher.name,
@@ -178,7 +180,25 @@ class _VoucherPageState extends State<VoucherPage> {
       'value': voucher.value,
       'minSpend': voucher.minSpend,
       'maxDiscount': voucher.maxDiscount,
-    });
+      'storeId': voucher.storeId,
+      'storeName': voucher.storeName,
+    };
+
+    if (widget.isSelecting) {
+      Navigator.pop(context, payload);
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EcomerPage(
+          initialVoucherCode: voucher.code,
+          initialVoucherName: voucher.name,
+          initialStoreName: voucher.storeName,
+        ),
+      ),
+    );
   }
 
   String _getDiscountText(VoucherModel voucher) {
@@ -283,24 +303,30 @@ class _VoucherPageState extends State<VoucherPage> {
                 icon: const Icon(Icons.arrow_back, color: textDark),
               ),
               const SizedBox(width: 6),
-              const Expanded(
+              Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Voucher & Promo',
-                        style: TextStyle(
+                        widget.isSelecting ? 'Pilih Voucher EcoMart' : 'Voucher & Promo',
+                        style: const TextStyle(
                           color: textDark,
                           fontSize: 21,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Tukarkan poin dan hemat lebih banyak',
-                        style: TextStyle(color: textDark, fontSize: 11, fontWeight: FontWeight.w500),
+                        widget.isSelecting
+                            ? 'Pilih promo untuk langsung dipakai saat checkout'
+                            : 'Gunakan promo untuk belanja hemat di EcoMart',
+                        style: const TextStyle(
+                          color: textDark,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -334,7 +360,7 @@ class _VoucherPageState extends State<VoucherPage> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -382,7 +408,7 @@ class _VoucherPageState extends State<VoucherPage> {
               ),
               SizedBox(height: 2),
               Text(
-                'Pilih promo yang ingin Anda gunakan',
+                'Pilih promo yang ingin Anda gunakan di EcoMart',
                 style: TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ],
@@ -391,7 +417,7 @@ class _VoucherPageState extends State<VoucherPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: brandYellow.withOpacity(0.35),
+            color: brandYellow.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -415,7 +441,7 @@ class _VoucherPageState extends State<VoucherPage> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
+            color: Colors.black.withValues(alpha: 0.035),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -427,7 +453,6 @@ class _VoucherPageState extends State<VoucherPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Kolom Diskon Kiri (Kuning Gojek Signature)
               Container(
                 width: 95,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
@@ -474,14 +499,10 @@ class _VoucherPageState extends State<VoucherPage> {
                   ],
                 ),
               ),
-
-              // Garis Pemisah Tiket (Dotted/Dashed feel)
               CustomPaint(
                 size: const Size(1, double.infinity),
                 painter: _DashedLinePainter(),
               ),
-
-              // Rincian Voucher Kanan
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -507,7 +528,7 @@ class _VoucherPageState extends State<VoucherPage> {
                           if (voucher.storeName.isNotEmpty) ...[
                             const SizedBox(width: 6),
                             Container(
-                              constraints: const BoxConstraints(maxWidth: 85),
+                              constraints: const BoxConstraints(maxWidth: 95),
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFEF3C7),
@@ -541,8 +562,6 @@ class _VoucherPageState extends State<VoucherPage> {
                         ),
                       ],
                       const SizedBox(height: 10),
-
-                      // Baris Kode & Tombol Salin
                       Container(
                         height: 36,
                         padding: const EdgeInsets.only(left: 10, right: 2),
@@ -586,8 +605,6 @@ class _VoucherPageState extends State<VoucherPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-
-                      // Info Tambahan Chips
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -608,12 +625,10 @@ class _VoucherPageState extends State<VoucherPage> {
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // Tombol Gunakan
                       SizedBox(
                         width: double.infinity,
                         height: 36,
-                        child: ElevatedButton(
+                        child: ElevatedButton.icon(
                           onPressed: () => _selectVoucher(voucher),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: textDark,
@@ -623,9 +638,17 @@ class _VoucherPageState extends State<VoucherPage> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: const Text(
-                            'Gunakan Voucher',
-                            style: TextStyle(
+                          icon: Icon(
+                            widget.isSelecting
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.shopping_bag_rounded,
+                            size: 15,
+                          ),
+                          label: Text(
+                            widget.isSelecting
+                                ? 'Pakai di Checkout'
+                                : 'Gunakan di EcoMart',
+                            style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w900,
                             ),
@@ -680,7 +703,7 @@ class _VoucherPageState extends State<VoucherPage> {
               width: 68,
               height: 68,
               decoration: BoxDecoration(
-                color: brandYellow.withOpacity(0.35),
+                color: brandYellow.withValues(alpha: 0.35),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -700,7 +723,7 @@ class _VoucherPageState extends State<VoucherPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Promo dan voucher penukaran sampah akan muncul di sini.',
+              'Promo dan voucher belanja EcoMart akan muncul di sini.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11,
@@ -753,7 +776,6 @@ class _VoucherPageState extends State<VoucherPage> {
   }
 }
 
-// Lukis Garis Putus-Putus Pembatas Tiket Voucher
 class _DashedLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -773,10 +795,6 @@ class _DashedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
-
-// ============================================================
-// VOUCHER MODEL (DATA & SERIALISASI UTUH)
-// ============================================================
 
 class VoucherModel {
   final int id;
