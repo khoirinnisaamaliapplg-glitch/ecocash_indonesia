@@ -1,19 +1,19 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../ipconfig.dart';
 import '../profile/daftar_alamat_page.dart';
 import 'riwayat_pickup_page.dart';
 
-// Alias tipe agar kebal error copy-paste kurung bertingkat
 typedef AddressMap = Map<String, dynamic>;
 
-// Model spesifikasi armada
 class FleetSpec {
   final String type;
   final String title;
+  final String subtitle;
   final IconData icon;
   final double maxCapacityKg;
   final String distance;
@@ -22,6 +22,7 @@ class FleetSpec {
   const FleetSpec({
     required this.type,
     required this.title,
+    required this.subtitle,
     required this.icon,
     required this.maxCapacityKg,
     required this.distance,
@@ -29,7 +30,6 @@ class FleetSpec {
   });
 }
 
-// Model jenis sampah admin
 class WasteTypeItem {
   final int id;
   final String name;
@@ -54,12 +54,16 @@ class PickupWastePage extends StatefulWidget {
 }
 
 class _PickupWastePageState extends State<PickupWastePage> {
-  // Palet Warna Kuning Gojek EcoCash
+  // Palet Warna Modern EcoCash
   static const Color brandYellow = Color(0xFFFFE600);
-  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color brandYellowSoft = Color(0xFFFFF9C4);
+  static const Color textDark = Color(0xFF111827);
+  static const Color textMuted = Color(0xFF6B7280);
   static const Color primaryNavy = Color(0xFF0F2C59);
-  static const Color ecoGreen = Color(0xFF00AA13);
-  static const Color surfaceBg = Color(0xFFF7F8FA);
+  static const Color ecoGreen = Color(0xFF059669);
+  static const Color ecoGreenSoft = Color(0xFFECFDF5);
+  static const Color surfaceBg = Color(0xFFF3F4F6);
+  static const Color borderSubtle = Color(0xFFE5E7EB);
 
   final NumberFormat _currencyFormat = NumberFormat.currency(
     locale: 'id_ID',
@@ -74,36 +78,40 @@ class _PickupWastePageState extends State<PickupWastePage> {
   bool _isLoadingWasteTypes = true;
   List<WasteTypeItem> _availableWasteTypes = [];
   final Set<int> _selectedWasteTypeIds = {};
+  String? _appliedAreaName;
 
   final List<FleetSpec> _fleetSpecs = const [
     FleetSpec(
       type: 'MOTORCYCLE',
       title: 'Motor Roda 3',
-      icon: Icons.two_wheeler,
+      subtitle: 'Gesit untuk gang & rumah tangga',
+      icon: Icons.two_wheeler_rounded,
       maxCapacityKg: 35.0,
       distance: '1.2 Km',
-      time: '5 menit',
+      time: '5 mnt',
     ),
     FleetSpec(
       type: 'CART',
       title: 'Gerobak Motor',
-      icon: Icons.shopping_cart_outlined,
+      subtitle: 'Ideal untuk muatan menengah',
+      icon: Icons.moped_rounded,
       maxCapacityKg: 150.0,
       distance: '1.8 Km',
-      time: '8 menit',
+      time: '8 mnt',
     ),
     FleetSpec(
       type: 'CAR',
       title: 'Mobil Pickup',
-      icon: Icons.local_shipping,
+      subtitle: 'Kapasitas besar & sampah komersial',
+      icon: Icons.local_shipping_rounded,
       maxCapacityKg: 600.0,
       distance: '2.5 Km',
-      time: '12 menit',
+      time: '12 mnt',
     ),
   ];
 
   int _selectedFleetIndex = 0;
-  String selectedDestination = "container"; // 'container' atau 'enterprise'
+  String selectedDestination = "container";
   int _selectedMachineIndex = 0;
   int? _selectedMachineId;
 
@@ -112,6 +120,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
   List<dynamic> activeMachines = [];
 
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController(text: '15');
 
   double _calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
     const double r = 6371.0;
@@ -142,18 +151,24 @@ class _PickupWastePageState extends State<PickupWastePage> {
   @override
   void initState() {
     super.initState();
-    _fetchAddressesFromDb();
-    _fetchWasteTypesFromDb();
-    _loadInitialMachines();
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    await _fetchAddressesFromDb();
+    await Future.wait([
+      _fetchWasteTypesFromDb(),
+      _loadInitialMachines(),
+    ]);
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
-  // 1. Ambil alamat aktif dari Database
   Future<void> _fetchAddressesFromDb() async {
     setState(() => _isLoadingAddress = true);
     try {
@@ -170,9 +185,11 @@ class _PickupWastePageState extends State<PickupWastePage> {
             (a) => a['isDefault'] == true,
             orElse: () => list.first,
           );
-          setState(() {
-            _selectedAddress = Map<String, dynamic>.from(defaultAddr);
-          });
+          if (mounted) {
+            setState(() {
+              _selectedAddress = Map<String, dynamic>.from(defaultAddr);
+            });
+          }
           _autoSelectClosestMachine();
         }
       }
@@ -183,12 +200,28 @@ class _PickupWastePageState extends State<PickupWastePage> {
     }
   }
 
-  // 2. Ambil Master Jenis Sampah & Harga Admin Aktif dari Backend
   Future<void> _fetchWasteTypesFromDb() async {
-    setState(() => _isLoadingWasteTypes = true);
+    if (mounted) setState(() => _isLoadingWasteTypes = true);
     try {
+      final queryParams = <String, String>{};
+      if (_selectedAddress != null) {
+        if (_selectedAddress!['id'] != null) {
+          queryParams['addressId'] = _selectedAddress!['id'].toString();
+        }
+        if (_selectedAddress!['areaId'] != null) {
+          queryParams['areaId'] = _selectedAddress!['areaId'].toString();
+        }
+        if (_selectedAddress!['city'] != null &&
+            _selectedAddress!['city'].toString().trim().isNotEmpty) {
+          queryParams['city'] = _selectedAddress!['city'].toString().trim();
+        }
+      }
+
+      final materialsUri = Uri.parse('${ApiConfig.baseUrl}/jobs/materials')
+          .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+
       var res = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/jobs/materials'),
+        materialsUri,
         headers: ApiConfig.headers,
       );
 
@@ -203,18 +236,28 @@ class _PickupWastePageState extends State<PickupWastePage> {
         final decoded = jsonDecode(res.body);
         final List list = decoded['data'] is List ? decoded['data'] : [];
 
-        if (list.isNotEmpty) {
+        if (list.isNotEmpty && mounted) {
+          final firstAreaName =
+              list.first is Map ? list.first['appliedAreaName']?.toString() : null;
           setState(() {
+            _appliedAreaName = (firstAreaName != null && firstAreaName.isNotEmpty)
+                ? firstAreaName
+                : _selectedAddress?['city']?.toString();
+
             _availableWasteTypes = list.map((item) {
               final String rawName = (item['name'] ?? 'Material').toString();
 
               double price = 500.0;
               if (item['pricePerKg'] != null) {
                 price = double.tryParse(item['pricePerKg'].toString()) ?? 500.0;
-              } else if (item['wasteType'] != null && item['wasteType']['prices'] is List) {
+              } else if (item['wasteType'] != null &&
+                  item['wasteType']['prices'] is List) {
                 final pricesList = item['wasteType']['prices'] as List;
-                if (pricesList.isNotEmpty && pricesList[0]['pricePerKg'] != null) {
-                  price = double.tryParse(pricesList[0]['pricePerKg'].toString()) ?? 500.0;
+                if (pricesList.isNotEmpty &&
+                    pricesList[0]['pricePerKg'] != null) {
+                  price = double.tryParse(
+                          pricesList[0]['pricePerKg'].toString()) ??
+                      500.0;
                 }
               }
 
@@ -227,7 +270,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
               );
             }).toList();
 
-            if (_availableWasteTypes.isNotEmpty && _selectedWasteTypeIds.isEmpty) {
+            if (_availableWasteTypes.isNotEmpty &&
+                _selectedWasteTypeIds.isEmpty) {
               _selectedWasteTypeIds.add(_availableWasteTypes.first.id);
             }
           });
@@ -244,6 +288,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
   }
 
   void _setDefaultWasteTypes() {
+    if (!mounted) return;
     setState(() {
       _availableWasteTypes = [
         WasteTypeItem(id: 1, name: 'PET (Botol Bening)', rawName: 'plastic', pricePerKg: 500.0),
@@ -251,19 +296,21 @@ class _PickupWastePageState extends State<PickupWastePage> {
         WasteTypeItem(id: 3, name: 'Kaleng Aluminium', rawName: 'metal', pricePerKg: 500.0),
         WasteTypeItem(id: 4, name: 'Botol & Pecahan Kaca', rawName: 'glass', pricePerKg: 500.0),
       ];
-      _selectedWasteTypeIds.add(1);
+      if (_selectedWasteTypeIds.isEmpty) {
+        _selectedWasteTypeIds.add(1);
+      }
     });
   }
 
-  // 3. Ambil data Smart Container dari Database
   Future<void> _loadInitialMachines() async {
-    setState(() => isFetchingMachines = true);
+    if (mounted) setState(() => isFetchingMachines = true);
     try {
       final machineUri = Uri.parse(ApiConfig.getPublicMachines);
       final machineRes = await http.get(machineUri, headers: ApiConfig.headers);
       if (machineRes.statusCode == 200) {
         final machineData = jsonDecode(machineRes.body);
-        if (machineData['data'] is List && (machineData['data'] as List).isNotEmpty) {
+        if (machineData['data'] is List &&
+            (machineData['data'] as List).isNotEmpty) {
           activeMachines = List.from(machineData['data']);
           _autoSelectClosestMachine();
         }
@@ -275,9 +322,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
     }
   }
 
-  // Otomatis prioritaskan mesin terdekat dari koordinat GPS alamat pemesan
   void _autoSelectClosestMachine() {
-    if (activeMachines.isEmpty) return;
+    if (activeMachines.isEmpty || !mounted) return;
 
     double? userLat;
     double? userLng;
@@ -312,17 +358,42 @@ class _PickupWastePageState extends State<PickupWastePage> {
     });
   }
 
-  void _onWeightChanged(double newWeight) {
+  String _formatWeightInput(double value) {
+    if (value % 1 == 0) return value.toInt().toString();
+    return double.parse(value.toStringAsFixed(2)).toString();
+  }
+
+  void _onWeightChanged(double newWeight, {bool syncText = true}) {
+    final clamped = newWeight.clamp(0.5, 600.0);
     setState(() {
-      _estimatedWeight = newWeight.clamp(1.0, 600.0);
+      _estimatedWeight = clamped;
       _autoAdjustFleet();
     });
+    if (syncText) {
+      final formatted = _formatWeightInput(clamped);
+      if (_weightController.text != formatted) {
+        _weightController.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      }
+    }
+  }
+
+  void _onManualWeightTyped(String raw) {
+    final normalized = raw.replaceAll(',', '.').trim();
+    if (normalized.isEmpty) return;
+    final parsed = double.tryParse(normalized);
+    if (parsed != null && parsed >= 0.5) {
+      _onWeightChanged(parsed, syncText: false);
+    }
   }
 
   void _autoAdjustFleet() {
     final currentFleet = _fleetSpecs[_selectedFleetIndex];
     if (_estimatedWeight > currentFleet.maxCapacityKg) {
-      final suitableIndex = _fleetSpecs.indexWhere((f) => _estimatedWeight <= f.maxCapacityKg);
+      final suitableIndex =
+          _fleetSpecs.indexWhere((f) => _estimatedWeight <= f.maxCapacityKg);
       if (suitableIndex != -1) {
         _selectedFleetIndex = suitableIndex;
       }
@@ -332,7 +403,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
   void _openAddressSelector() async {
     final selected = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const DaftarAlamatPage(isSelecting: true)),
+      MaterialPageRoute(
+          builder: (context) => const DaftarAlamatPage(isSelecting: true)),
     );
 
     if (selected != null && selected is Map) {
@@ -340,6 +412,7 @@ class _PickupWastePageState extends State<PickupWastePage> {
         _selectedAddress = Map<String, dynamic>.from(selected);
       });
       _autoSelectClosestMachine();
+      await _fetchWasteTypesFromDb();
     }
   }
 
@@ -348,55 +421,73 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text("Pilih Smart Container Tujuan", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: brandYellow.withOpacity(0.3), borderRadius: BorderRadius.circular(8)),
-                            child: Text("${activeMachines.length} Mesin Aktif", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark)),
-                          ),
-                        ],
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Pilih Smart Container",
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: textDark,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: brandYellowSoft,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "${activeMachines.length} Aktif",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: textDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     Flexible(
                       child: ListView.separated(
                         shrinkWrap: true,
                         itemCount: activeMachines.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) {
                           final m = activeMachines[i];
-                          final int mId = int.tryParse(m['id'].toString()) ?? 0;
-                          final bool isSelected = _selectedMachineId != null ? (_selectedMachineId == mId) : (_selectedMachineIndex == i);
+                          final int mId =
+                              int.tryParse(m['id'].toString()) ?? 0;
+                          final bool isSelected = _selectedMachineId != null
+                              ? (_selectedMachineId == mId)
+                              : (_selectedMachineIndex == i);
 
-                          return ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isSelected ? brandYellow.withOpacity(0.3) : const Color(0xFFF4F6F8),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(Icons.inventory_2_outlined, color: isSelected ? textDark : Colors.grey, size: 24),
-                            ),
-                            title: Text(m['name'] ?? 'Smart Container', style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 14)),
-                            subtitle: Text("${m['placeName'] ?? 'Kota Bandung'} • Terisi ${m['fillPercentage'] ?? 0}%", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                            trailing: Icon(isSelected ? Icons.check_circle : Icons.circle_outlined, color: isSelected ? textDark : Colors.grey.shade400),
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(14),
                             onTap: () {
                               setModalState(() {
                                 _selectedMachineIndex = i;
@@ -409,6 +500,68 @@ class _PickupWastePageState extends State<PickupWastePage> {
                               });
                               Navigator.pop(ctx);
                             },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? brandYellowSoft.withValues(alpha: 0.5)
+                                    : surfaceBg,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected ? textDark : borderSubtle,
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? brandYellow
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.inventory_2_rounded,
+                                      color: textDark,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          m['name'] ?? 'Smart Container',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            color: textDark,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "${m['placeName'] ?? 'Lokasi Mesin'} • Terisi ${m['fillPercentage'] ?? 0}%",
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: textMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    isSelected
+                                        ? Icons.check_circle_rounded
+                                        : Icons.radio_button_unchecked_rounded,
+                                    color: isSelected ? textDark : textMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -423,25 +576,33 @@ class _PickupWastePageState extends State<PickupWastePage> {
     );
   }
 
-  // 4. Kirim pesanan penjemputan ke Backend (Payload & Logic Utuh Sesuai Integrasi)
   Future<void> _orderPickup() async {
     if (!ApiConfig.hasToken) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Silakan login terlebih dahulu"), backgroundColor: Colors.orange),
+        const SnackBar(
+          content: Text("Silakan login terlebih dahulu"),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     if (_selectedAddress == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Pilih atau tambahkan alamat penjemputan terlebih dahulu"), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text("Pilih atau tambahkan alamat penjemputan terlebih dahulu"),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
 
     if (_selectedWasteTypeIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Pilih minimal satu jenis sampah yang ingin disetor!"), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text("Pilih minimal satu jenis sampah yang ingin disetor!"),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -450,7 +611,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
     if (_estimatedWeight > selectedFleet.maxCapacityKg) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Muatan ${_estimatedWeight.toStringAsFixed(0)} kg melebihi kapasitas ${selectedFleet.title}."),
+          content: Text(
+              "Muatan ${_estimatedWeight.toStringAsFixed(0)} kg melebihi kapasitas ${selectedFleet.title}."),
           backgroundColor: Colors.red,
         ),
       );
@@ -466,10 +628,14 @@ class _PickupWastePageState extends State<PickupWastePage> {
       if (selectedDestination == "container") {
         if (activeMachines.isNotEmpty) {
           final targetMachine = (_selectedMachineId != null)
-              ? activeMachines.firstWhere((m) => int.tryParse(m['id'].toString()) == _selectedMachineId, orElse: () => activeMachines[_selectedMachineIndex])
+              ? activeMachines.firstWhere(
+                  (m) => int.tryParse(m['id'].toString()) == _selectedMachineId,
+                  orElse: () => activeMachines[_selectedMachineIndex])
               : activeMachines[_selectedMachineIndex];
 
-          final String mName = targetMachine['name'] ?? targetMachine['placeName'] ?? "Smart Container";
+          final String mName = targetMachine['name'] ??
+              targetMachine['placeName'] ??
+              "Smart Container";
           destinationTitle = "Smart Container ($mName)";
           targetMachineId = int.tryParse(targetMachine['id'].toString());
         } else {
@@ -479,7 +645,10 @@ class _PickupWastePageState extends State<PickupWastePage> {
         destinationTitle = "EcoCash Enterprise Partner (Recycler)";
       }
 
-      final String finalAddress = (_selectedAddress!['detail'] ?? _selectedAddress!['address'] ?? 'Alamat Warga').toString();
+      final String finalAddress = (_selectedAddress!['detail'] ??
+              _selectedAddress!['address'] ??
+              'Alamat Warga')
+          .toString();
 
       final List<String> selectedNames = _availableWasteTypes
           .where((t) => _selectedWasteTypeIds.contains(t.id))
@@ -488,12 +657,12 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
       final String materialCategoryString = selectedNames.join(', ');
 
-      // Payload JSON dikirim utuh tanpa mengubah nama kolom atau integrasi backend
       final payload = {
         "title": "Penjemputan Sampah - Warga",
         "addressId": _selectedAddress?['id'],
         "address": finalAddress,
-        "notes": "${_notesController.text.trim()} (Armada: ${selectedFleet.title} | Tujuan: $destinationTitle)",
+        "notes":
+            "${_notesController.text.trim()} (Armada: ${selectedFleet.title} | Tujuan: $destinationTitle)",
         "estimatedWeight": _estimatedWeight,
         "vehicleType": selectedFleet.type,
         "materialCategory": materialCategoryString,
@@ -510,7 +679,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 201 || (response.statusCode == 200 && data['success'] == true)) {
+      if (response.statusCode == 201 ||
+          (response.statusCode == 200 && data['success'] == true)) {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -518,7 +688,8 @@ class _PickupWastePageState extends State<PickupWastePage> {
         );
       } else {
         if (!mounted) return;
-        final String errorMsg = data['message'] ?? 'Gagal membuat pesanan penjemputan';
+        final String errorMsg =
+            data['message'] ?? 'Gagal membuat pesanan penjemputan';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
         );
@@ -526,11 +697,31 @@ class _PickupWastePageState extends State<PickupWastePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Terjadi kesalahan jaringan: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Terjadi kesalahan jaringan: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => loading = false);
     }
+  }
+
+  IconData _iconForMaterial(String rawName) {
+    final lower = rawName.toLowerCase();
+    if (lower.contains('pet') || lower.contains('hdpe') || lower.contains('plastik') || lower.contains('botol')) {
+      return Icons.local_drink_rounded;
+    }
+    if (lower.contains('kardus') || lower.contains('kertas') || lower.contains('paper')) {
+      return Icons.inventory_2_rounded;
+    }
+    if (lower.contains('kaleng') || lower.contains('aluminium') || lower.contains('metal') || lower.contains('besi')) {
+      return Icons.settings_suggest_rounded;
+    }
+    if (lower.contains('kaca') || lower.contains('glass')) {
+      return Icons.wine_bar_rounded;
+    }
+    return Icons.recycling_rounded;
   }
 
   @override
@@ -542,21 +733,28 @@ class _PickupWastePageState extends State<PickupWastePage> {
           _buildHeader(),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 120),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
                   _buildAddressCard(),
                   const SizedBox(height: 16),
                   _buildWasteTypeSection(),
                   const SizedBox(height: 16),
                   _buildWeightControlSection(),
-                  const SizedBox(height: 20),
-                  _sectionTitle("Pilihan Armada Penjemput"),
+                  const SizedBox(height: 22),
+                  _sectionHeader(
+                    "Pilihan Armada Penjemput",
+                    "Otomatis menyesuaikan berat muatan",
+                  ),
+                  const SizedBox(height: 10),
                   _buildSmartFleetList(),
-                  const SizedBox(height: 24),
-                  _sectionTitle("Tujuan Penyetoran"),
+                  const SizedBox(height: 22),
+                  _sectionHeader(
+                    "Tujuan Penyetoran",
+                    "Titik drop-off akhir kurir",
+                  ),
+                  const SizedBox(height: 10),
                   _buildDestinationOptions(),
                   const SizedBox(height: 16),
                   _buildNotesInput(),
@@ -572,36 +770,99 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
   Widget _buildHeader() {
     return Container(
-      height: 140,
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: brandYellow,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFEE32), brandYellow],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: SafeArea(
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.fromLTRB(12, 8, 16, 20),
           child: Row(
             children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back, color: textDark),
+              Material(
+                color: Colors.white.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => Navigator.pop(context),
+                  child: const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Icon(Icons.arrow_back_rounded, color: textDark, size: 20),
+                  ),
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               const Expanded(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Jemput Sampah", style: TextStyle(color: textDark, fontSize: 21, fontWeight: FontWeight.w900)),
-                    Text("Alokasi armada sesuai kapasitas muatan", style: TextStyle(color: textDark, fontSize: 12)),
+                    Text(
+                      "Jemput Sampah",
+                      style: TextStyle(
+                        color: textDark,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "Tarif dinamis sesuai wilayah & armada",
+                      style: TextStyle(
+                        color: Color(0xFF374151),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Riwayat Pesanan',
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiwayatPickupPage())),
-                icon: const Icon(Icons.history_rounded, color: textDark),
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const RiwayatPickupPage()),
+                ),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: textDark,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.history_rounded, color: brandYellow, size: 15),
+                      SizedBox(width: 5),
+                      Text(
+                        "Riwayat",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -611,41 +872,141 @@ class _PickupWastePageState extends State<PickupWastePage> {
   }
 
   Widget _buildAddressCard() {
+    final String label =
+        (_selectedAddress?['label'] ?? 'Alamat Utama').toString();
+    final String city = (_selectedAddress?['city'] ?? '').toString();
+    final String detail = _selectedAddress != null
+        ? (_selectedAddress!['detail'] ??
+                _selectedAddress!['address'] ??
+                'Alamat belum diatur')
+            .toString()
+        : 'Belum ada alamat tersimpan di database.';
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: _isLoadingAddress
-          ? const Center(child: CircularProgressIndicator(color: primaryNavy))
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: primaryNavy),
+                ),
+              ),
+            )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.location_on_rounded, color: Color(0xFFD97706), size: 20),
-                        SizedBox(width: 8),
-                        Text('Alamat Penjemputan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textDark)),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        color: Color(0xFFD97706),
+                        size: 18,
+                      ),
                     ),
-                    InkWell(
-                      onTap: _openAddressSelector,
-                      child: const Text('Ganti Alamat', style: TextStyle(color: textDark, fontWeight: FontWeight.w900, fontSize: 12)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'TITIK PENJEMPUTAN',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                              color: textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Row(
+                            children: [
+                              Text(
+                                label,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: textDark,
+                                ),
+                              ),
+                              if (city.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: surfaceBg,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    city,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: primaryNavy,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _openAddressSelector,
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 15),
+                      label: const Text('Ubah'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: textDark,
+                        side: const BorderSide(color: borderSubtle),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(height: 1, color: borderSubtle),
+                ),
                 Text(
-                  _selectedAddress != null
-                      ? (_selectedAddress!['detail'] ?? _selectedAddress!['address'] ?? 'Alamat belum diatur')
-                      : 'Belum ada alamat tersimpan di database.',
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  detail,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Color(0xFF374151),
+                  ),
                 ),
               ],
             ),
@@ -654,12 +1015,18 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
   Widget _buildWasteTypeSection() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,37 +1034,163 @@ class _PickupWastePageState extends State<PickupWastePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Kategori Jenis Sampah', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
-              Text('${_selectedWasteTypeIds.length} Dipilih', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _availableWasteTypes.map((type) {
-              final bool isSelected = _selectedWasteTypeIds.contains(type.id);
-              return FilterChip(
-                label: Text('${type.name} (@${_currencyFormat.format(type.pricePerKg)}/kg)'),
-                selected: isSelected,
-                selectedColor: brandYellow,
-                backgroundColor: const Color(0xFFF1F5F9),
-                labelStyle: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              const Text(
+                'Kategori Jenis Sampah',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
                   color: textDark,
                 ),
-                onSelected: (val) {
-                  setState(() {
-                    if (val) {
-                      _selectedWasteTypeIds.add(type.id);
-                    } else if (_selectedWasteTypeIds.length > 1) {
-                      _selectedWasteTypeIds.remove(type.id);
-                    }
-                  });
-                },
+              ),
+              _isLoadingWasteTypes
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryNavy,
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: brandYellowSoft,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_selectedWasteTypeIds.length} Dipilih',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: textDark,
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+          if (_appliedAreaName != null && _appliedAreaName!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: ecoGreenSoft,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.verified_rounded, size: 14, color: ecoGreen),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Tarif Wilayah: $_appliedAreaName',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: ecoGreen,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const double spacing = 10;
+              final double itemWidth = (constraints.maxWidth - spacing) / 2;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: _availableWasteTypes.map((type) {
+                  final bool isSelected =
+                      _selectedWasteTypeIds.contains(type.id);
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          if (_selectedWasteTypeIds.length > 1) {
+                            _selectedWasteTypeIds.remove(type.id);
+                          }
+                        } else {
+                          _selectedWasteTypeIds.add(type.id);
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: itemWidth,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? brandYellowSoft.withValues(alpha: 0.65)
+                            : surfaceBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected ? textDark : borderSubtle,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? brandYellow
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  _iconForMaterial(type.name),
+                                  size: 16,
+                                  color: textDark,
+                                ),
+                              ),
+                              Icon(
+                                isSelected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.circle_outlined,
+                                size: 18,
+                                color: isSelected ? textDark : Colors.grey.shade400,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            type.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${_currencyFormat.format(type.pricePerKg)} / kg',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: isSelected ? ecoGreen : primaryNavy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
               );
-            }).toList(),
+            },
           ),
         ],
       ),
@@ -705,13 +1198,21 @@ class _PickupWastePageState extends State<PickupWastePage> {
   }
 
   Widget _buildWeightControlSection() {
+    const List<double> presetWeights = [5.0, 15.0, 30.0, 50.0, 100.0];
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,45 +1220,180 @@ class _PickupWastePageState extends State<PickupWastePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Berat Sampah yang Disetor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: brandYellow.withOpacity(0.35), borderRadius: BorderRadius.circular(10)),
-                child: Text('${_estimatedWeight.toStringAsFixed(1)} Kg', style: const TextStyle(color: textDark, fontWeight: FontWeight.bold, fontSize: 15)),
+              const Text(
+                'Perkiraan Berat Sampah',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: textDark,
+                ),
+              ),
+              Row(
+                children: [
+                  _stepperButton(
+                    icon: Icons.remove_rounded,
+                    onTap: () => _onWeightChanged(_estimatedWeight - 1),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: brandYellowSoft,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: brandYellow),
+                    ),
+                    child: Text(
+                      '${_estimatedWeight.toStringAsFixed(1)} Kg',
+                      style: const TextStyle(
+                        color: textDark,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  _stepperButton(
+                    icon: Icons.add_rounded,
+                    onTap: () => _onWeightChanged(_estimatedWeight + 1),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: textDark,
               thumbColor: brandYellow,
+              overlayColor: brandYellow.withValues(alpha: 0.25),
               inactiveTrackColor: Colors.grey.shade200,
+              trackHeight: 5,
             ),
             child: Slider(
-              value: _estimatedWeight,
-              min: 1.0,
+              value: _estimatedWeight.clamp(0.5, 300.0),
+              min: 0.5,
               max: 300.0,
-              divisions: 299,
-              onChanged: _onWeightChanged,
+              onChanged: (val) => _onWeightChanged(double.parse(val.toStringAsFixed(1))),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Estimasi Saldo Diterima', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Text(_currencyFormat.format(_estimatedEarnings), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: ecoGreen)),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: presetWeights.map((w) {
+                final bool active = (_estimatedWeight - w).abs() < 0.1;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text('${w.toInt()} Kg'),
+                    selected: active,
+                    selectedColor: textDark,
+                    backgroundColor: surfaceBg,
+                    showCheckmark: false,
+                    labelStyle: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: active ? brandYellow : textDark,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                        color: active ? textDark : borderSubtle,
+                      ),
+                    ),
+                    onSelected: (_) => _onWeightChanged(w),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ecoGreenSoft,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFA7F3D0)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Estimasi Saldo Masuk',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF065F46),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Rata-rata ${_currencyFormat.format(_currentAvgPricePerKg)}/kg × ${_estimatedWeight.toStringAsFixed(1)} kg',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: ecoGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  _currencyFormat.format(_estimatedEarnings),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: ecoGreen,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
+  Widget _stepperButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: surfaceBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderSubtle),
+        ),
+        child: Icon(icon, size: 16, color: textDark),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title, String subtitle) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: textDark,
+          ),
+        ),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 11,
+            color: textMuted,
+          ),
+        ),
+      ],
     );
   }
 
@@ -766,35 +1402,127 @@ class _PickupWastePageState extends State<PickupWastePage> {
       children: List.generate(_fleetSpecs.length, (index) {
         final fleet = _fleetSpecs[index];
         final bool isSelected = _selectedFleetIndex == index;
+        final bool isOverCapacity = _estimatedWeight > fleet.maxCapacityKg;
+        final double loadRatio =
+            (_estimatedWeight / fleet.maxCapacityKg).clamp(0.0, 1.0);
 
         return GestureDetector(
           onTap: () => setState(() => _selectedFleetIndex = index),
-          child: Container(
-            margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isSelected ? textDark : Colors.transparent, width: 1.5),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isSelected
+                    ? (isOverCapacity ? Colors.red : textDark)
+                    : borderSubtle,
+                width: isSelected ? 1.6 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Row(
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: isSelected ? brandYellow : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(fleet.icon, color: textDark, size: 26),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: isSelected ? brandYellow : surfaceBg,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(fleet.icon, color: textDark, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                fleet.title,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: textDark,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: surfaceBg,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '~${fleet.time}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: textMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            fleet.subtitle,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      isSelected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: isSelected ? textDark : Colors.grey.shade400,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(fleet.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textDark)),
-                      Text('Kapasitas: ${fleet.maxCapacityKg.toInt()} Kg • Tiba ~${fleet.time}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                    ],
-                  ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: loadRatio,
+                          minHeight: 5,
+                          backgroundColor: Colors.grey.shade200,
+                          color: isOverCapacity
+                              ? Colors.red
+                              : (loadRatio > 0.8 ? Colors.orange : ecoGreen),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      isOverCapacity
+                          ? 'Melebihi ${fleet.maxCapacityKg.toInt()} Kg'
+                          : 'Maks. ${fleet.maxCapacityKg.toInt()} Kg',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isOverCapacity ? Colors.red : textMuted,
+                      ),
+                    ),
+                  ],
                 ),
-                Icon(isSelected ? Icons.check_circle : Icons.circle_outlined, color: isSelected ? textDark : Colors.grey),
               ],
             ),
           ),
@@ -803,11 +1531,30 @@ class _PickupWastePageState extends State<PickupWastePage> {
     );
   }
 
-  // Tampilkan Nama Mesin Aktual & Rincian Sesuai yang Dipilih
   Widget _buildDestinationOptions() {
+    if (isFetchingMachines && activeMachines.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderSubtle),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: primaryNavy),
+          ),
+        ),
+      );
+    }
+
     final Map<String, dynamic>? currentMachine = (activeMachines.isNotEmpty)
         ? ((_selectedMachineId != null)
-            ? activeMachines.firstWhere((m) => int.tryParse(m['id'].toString()) == _selectedMachineId, orElse: () => activeMachines[_selectedMachineIndex])
+            ? activeMachines.firstWhere(
+                (m) => int.tryParse(m['id'].toString()) == _selectedMachineId,
+                orElse: () => activeMachines[_selectedMachineIndex])
             : activeMachines[_selectedMachineIndex])
         : null;
 
@@ -815,29 +1562,33 @@ class _PickupWastePageState extends State<PickupWastePage> {
         ? (currentMachine['name'] ?? "Smart Container")
         : "Smart Container EcoCash";
 
-    final int fillPct = currentMachine != null ? (currentMachine['fillPercentage'] ?? 0) : 0;
+    final int fillPct =
+        currentMachine != null ? (currentMachine['fillPercentage'] ?? 0) : 0;
     final bool isFull = fillPct >= 80;
-    final String areaInfo = currentMachine != null ? (currentMachine['placeName'] ?? currentMachine['address'] ?? '') : '';
+    final String areaInfo = currentMachine != null
+        ? (currentMachine['placeName'] ?? currentMachine['address'] ?? '')
+        : '';
 
     return Column(
       children: [
         _destinationCard(
           "container",
-          Icons.inventory_2_outlined,
+          Icons.inventory_2_rounded,
           machineTitle,
           isFull
-              ? "Kapasitas mesin hampir penuh ($fillPct%) • $areaInfo"
+              ? "Kapasitas hampir penuh ($fillPct%) • $areaInfo"
               : "Terisi $fillPct% • $areaInfo",
           onActionTap: activeMachines.length > 1 ? _openMachineSelector : null,
           actionLabel: activeMachines.length > 1
-              ? "Ganti Titik (${activeMachines.length} Mesin Tersedia)"
+              ? "Ganti Titik (${activeMachines.length} Mesin)"
               : null,
         ),
+        const SizedBox(height: 10),
         _destinationCard(
           "enterprise",
-          Icons.business_outlined,
-          "Mitra Daur Ulang (TPS/Pabrik)",
-          "Siap menampung kapasitas besar tanpa batas jangkauan kontainer",
+          Icons.factory_rounded,
+          "Mitra Daur Ulang (TPS / Pabrik)",
+          "Menampung kapasitas besar tanpa batas kuota Smart Container",
         ),
       ],
     );
@@ -855,44 +1606,89 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
     return GestureDetector(
       onTap: () => setState(() => selectedDestination = value),
-      child: Container(
-        margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: active ? textDark : Colors.transparent, width: 1.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: active ? textDark : borderSubtle,
+            width: active ? 1.6 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           children: [
             Row(
               children: [
-                Icon(icon, color: textDark, size: 26),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: active ? brandYellow : surfaceBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: textDark, size: 22),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textDark)),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: textDark,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Icon(active ? Icons.check_circle : Icons.circle_outlined, color: active ? textDark : Colors.grey),
+                Icon(
+                  active
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: active ? textDark : Colors.grey.shade400,
+                ),
               ],
             ),
             if (active && onActionTap != null && actionLabel != null) ...[
-              const Divider(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(height: 1, color: borderSubtle),
+              ),
               InkWell(
                 onTap: onActionTap,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textDark)),
+                    Text(
+                      actionLabel,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        color: primaryNavy,
+                      ),
+                    ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, size: 16, color: textDark),
+                    const Icon(Icons.chevron_right_rounded,
+                        size: 18, color: primaryNavy),
                   ],
                 ),
               ),
@@ -905,17 +1701,43 @@ class _PickupWastePageState extends State<PickupWastePage> {
 
   Widget _buildNotesInput() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      child: TextField(
-        controller: _notesController,
-        decoration: const InputDecoration(
-          isDense: true,
-          labelText: "Instruksi Penjemputan (Opsional)",
-          hintText: "Contoh: Sampah sudah diikat karung di teras",
-          border: OutlineInputBorder(),
-        ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Catatan untuk Kurir (Opsional)",
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: textDark,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _notesController,
+            maxLines: 2,
+            style: const TextStyle(fontSize: 13, color: textDark),
+            decoration: InputDecoration(
+              hintText: "Contoh: Karung sudah diikat rapi di depan teras",
+              hintStyle: const TextStyle(fontSize: 12, color: textMuted),
+              prefixIcon: const Icon(Icons.edit_note_rounded, color: textMuted),
+              filled: true,
+              fillColor: surfaceBg,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -924,27 +1746,88 @@ class _PickupWastePageState extends State<PickupWastePage> {
     final selectedFleet = _fleetSpecs[_selectedFleetIndex];
     final bool isOverweight = _estimatedWeight > selectedFleet.maxCapacityKg;
 
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.all(16),
+    return Container(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        child: SizedBox(
-          height: 50,
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: (loading || isOverweight) ? null : _orderPickup,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isOverweight ? Colors.grey : brandYellow,
-              foregroundColor: textDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              elevation: 0,
-            ),
-            child: loading
-                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: textDark, strokeWidth: 2))
-                : Text(
-                    isOverweight ? "Muatan Melebihi Kapasitas Armada" : "Pesan ${selectedFleet.title} (~${_currencyFormat.format(_estimatedEarnings)})",
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+        border: Border(top: BorderSide(color: borderSubtle)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 12,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Estimasi Diterima",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _currencyFormat.format(_estimatedEarnings),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: ecoGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 6,
+                child: SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: (loading || isOverweight) ? null : _orderPickup,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          isOverweight ? Colors.grey.shade300 : brandYellow,
+                      foregroundColor: textDark,
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                                color: textDark, strokeWidth: 2.5),
+                          )
+                        : Text(
+                            isOverweight
+                                ? "Muatan Berlebih"
+                                : "Pesan ${selectedFleet.title}",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                   ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
