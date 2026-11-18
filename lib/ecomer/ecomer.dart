@@ -2,17 +2,25 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:ecocash_indonesia/ipconfig.dart';
+import '../voucher/voucher.dart';
 
 class EcomerPage extends StatefulWidget {
   final String initialPath;
+  final String? initialVoucherCode;
+  final String? initialVoucherName;
+  final String? initialStoreName;
 
   const EcomerPage({
     super.key,
     this.initialPath = '',
+    this.initialVoucherCode,
+    this.initialVoucherName,
+    this.initialStoreName,
   });
 
   @override
@@ -36,6 +44,10 @@ class _EcomerPageState extends State<EcomerPage> {
   String _currentTitle = 'EcoMart Marketplace';
   Map<String, dynamic>? _cachedUser;
 
+  String? _activeVoucherCode;
+  String? _activeVoucherName;
+  String? _activeStoreName;
+
   bool get _isMobileWebViewSupported =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -53,11 +65,12 @@ class _EcomerPageState extends State<EcomerPage> {
   @override
   void initState() {
     super.initState();
+    _activeVoucherCode = widget.initialVoucherCode;
+    _activeVoucherName = widget.initialVoucherName;
+    _activeStoreName = widget.initialStoreName;
     _bootstrapMarketplace();
   }
 
-  /// Ambil profil user aktif terlebih dahulu agar pasangan `ecocash.token`
-  /// dan `ecocash.user` siap disuntikkan ke localStorage WebView.
   Future<void> _bootstrapMarketplace() async {
     final String? token = ApiConfig.userToken;
 
@@ -137,7 +150,6 @@ class _EcomerPageState extends State<EcomerPage> {
             final uri = Uri.tryParse(request.url);
             if (uri == null) return NavigationDecision.prevent;
 
-            // Teruskan deep link e-wallet / Midtrans / WhatsApp ke aplikasi eksternal
             if (uri.scheme != 'http' && uri.scheme != 'https') {
               await _launchExternalUri(uri);
               return NavigationDecision.prevent;
@@ -158,8 +170,6 @@ class _EcomerPageState extends State<EcomerPage> {
     _controller = controller;
   }
 
-  /// Menyuntikkan pasangan key resmi `ecocash.token` & `ecocash.user`
-  /// ke localStorage WebView Android/iOS.
   Future<void> _injectAuthSession(
     String url, {
     bool reloadIfFirstTime = false,
@@ -173,12 +183,17 @@ class _EcomerPageState extends State<EcomerPage> {
     final String safeToken = jsonEncode(token);
     final String safeUserJson =
         _cachedUser != null ? jsonEncode(jsonEncode(_cachedUser)) : 'null';
+    final String safeVoucher =
+        (_activeVoucherCode != null && _activeVoucherCode!.isNotEmpty)
+            ? jsonEncode(_activeVoucherCode)
+            : 'null';
 
     final String jsScript = '''
       (function() {
         try {
           var t = $safeToken;
           var u = $safeUserJson;
+          var v = $safeVoucher;
           var changed = false;
 
           if (localStorage.getItem('ecocash.token') !== t) {
@@ -188,6 +203,9 @@ class _EcomerPageState extends State<EcomerPage> {
           if (u !== null && localStorage.getItem('ecocash.user') !== u) {
             localStorage.setItem('ecocash.user', u);
             changed = true;
+          }
+          if (v !== null) {
+            localStorage.setItem('ecocash.selectedVoucher', v);
           }
 
           document.cookie = "ecocash.token=" + encodeURIComponent(t) + "; path=/; domain=.ecocash.id; SameSite=Lax; Secure";
@@ -205,6 +223,59 @@ class _EcomerPageState extends State<EcomerPage> {
         await controller.reload();
       }
     } catch (_) {}
+  }
+
+  Future<void> _openVoucherSelector() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const VoucherPage(isSelecting: true),
+      ),
+    );
+
+    if (result is Map && result['code'] != null) {
+      final code = result['code'].toString();
+      final name = result['name']?.toString();
+      final storeName = result['storeName']?.toString();
+
+      await Clipboard.setData(ClipboardData(text: code));
+      if (!mounted) return;
+
+      setState(() {
+        _activeVoucherCode = code;
+        _activeVoucherName = name;
+        _activeStoreName = storeName;
+      });
+
+      final currentUrl = await _controller?.currentUrl();
+      if (currentUrl != null) {
+        await _injectAuthSession(currentUrl);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Kode $code disalin! Tempel di kolom promo saat checkout.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: textDark,
+        ),
+      );
+    }
+  }
+
+  Future<void> _copyActiveVoucher() async {
+    if (_activeVoucherCode == null || _activeVoucherCode!.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: _activeVoucherCode!));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Kode $_activeVoucherCode berhasil disalin!'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: textDark,
+      ),
+    );
   }
 
   Future<void> _launchExternalUri(Uri uri) async {
@@ -256,8 +327,8 @@ class _EcomerPageState extends State<EcomerPage> {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              Row(
-                children: const [
+              const Row(
+                children: [
                   Icon(Icons.lock_rounded, size: 11, color: ecoGreen),
                   SizedBox(width: 4),
                   Text(
@@ -273,6 +344,11 @@ class _EcomerPageState extends State<EcomerPage> {
             ],
           ),
           actions: [
+            IconButton(
+              tooltip: 'Pilih Voucher Promo',
+              icon: const Icon(Icons.local_offer_outlined, color: textDark),
+              onPressed: _openVoucherSelector,
+            ),
             if (_controller != null)
               IconButton(
                 tooltip: 'Muat Ulang',
@@ -303,18 +379,102 @@ class _EcomerPageState extends State<EcomerPage> {
                 : const SizedBox(height: 3),
           ),
         ),
-        body: _isInitializing
-            ? const Center(child: CircularProgressIndicator(color: textDark))
-            : !_isMobileWebViewSupported
-                ? _buildWebOrDesktopIframe()
-                : _hasError
-                    ? _buildErrorView()
-                    : WebViewWidget(controller: _controller!),
+        body: Column(
+          children: [
+            if (_activeVoucherCode != null && _activeVoucherCode!.isNotEmpty)
+              _buildActiveVoucherBanner(),
+            Expanded(
+              child: _isInitializing
+                  ? const Center(child: CircularProgressIndicator(color: textDark))
+                  : !_isMobileWebViewSupported
+                      ? _buildWebOrDesktopIframe()
+                      : _hasError
+                          ? _buildErrorView()
+                          : WebViewWidget(controller: _controller!),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Untuk pratinjau di Flutter Web/Desktop agar halaman marketplace tetap tampil
+  Widget _buildActiveVoucherBanner() {
+    final String subtitleText =
+        (_activeStoreName != null && _activeStoreName!.isNotEmpty)
+            ? 'Toko: $_activeStoreName • Tempel kode saat checkout'
+            : (_activeVoucherName != null && _activeVoucherName!.isNotEmpty
+                ? '$_activeVoucherName • Tempel kode saat checkout'
+                : 'Kode sudah disalin, tempel saat checkout');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFECFDF5),
+        border: Border(bottom: BorderSide(color: Color(0xFFA7F3D0))),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.confirmation_number_rounded, size: 18, color: ecoGreen),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Voucher Aktif: $_activeVoucherCode',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF065F46),
+                  ),
+                ),
+                Text(
+                  subtitleText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: ecoGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _copyActiveVoucher,
+            style: TextButton.styleFrom(
+              foregroundColor: textDark,
+              backgroundColor: brandYellow,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.content_copy_rounded, size: 13),
+            label: const Text(
+              'Salin',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: () => setState(() {
+              _activeVoucherCode = null;
+              _activeVoucherName = null;
+              _activeStoreName = null;
+            }),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.close, size: 15, color: Color(0xFF065F46)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWebOrDesktopIframe() {
     final controller = WebViewController()..loadRequest(Uri.parse(_targetUrl));
     return WebViewWidget(controller: controller);
